@@ -1,3 +1,3 @@
-# High Performance Statistical Computing
-STA141C in UCD
+# UC Davis Statistics STA 141C : High Performance Statistical Computing
+
 Just parts of the homework
