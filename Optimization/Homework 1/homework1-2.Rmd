@@ -1,0 +1,74 @@
+---
+title: "Sta 250 homework1 part 2"
+output:
+  html_document: default
+  pdf_document: default
+---
+####(c) larger data.
+```{r}
+#read data
+x<-read.table('E:/hw1_data/x_epsilonsubset')
+y<-read.table('E:/hw1_data/y_epsilonsubset')
+#add a constant variables
+x<-cbind(1,x)
+#the number of samples
+n=nrow(x)
+#the number of variables
+p=ncol(x)
+#iteration times
+k=50
+```
+
+```{r fw1}
+#set f'(w) as a function
+fw1<-function(w){
+    #calculate f'(w)
+    fw=0
+    for (i in 1:n){
+      e=exp(-y[i,]*t(w)%*%t(x[i,]))
+      fw=fw+t((-y[i,]*e)/(1+e)*x[i,])
+    }
+    fw=fw/n+w
+    fw
+}
+```
+
+```{r fw}
+#set f(w) as a function
+fw<-function(w){
+  f=1/2*sum(w^2)
+  for (i in 1:n){
+    f=f+1/n*log(1+exp(-y[i,]*t(w)%*%t(x[i,])))
+  }
+  f
+}
+```
+run the algorithm 2
+```{r}
+#initial w
+w=matrix(1, p, 1)
+#To record w
+wlist=matrix(0,p,(k+1))
+wlist[,1]=w
+
+for(j in 1:k){
+  g=fw1(w)
+  eta=1
+  while(fw(w-eta*g)-fw(w)>-0.01*eta*sum(g^2)){
+    eta=eta/2
+  }
+  w=w-eta*g#the new w
+  wlist[,j+1]=w#record w
+}
+```
+
+```{r}
+flist=vector(mode='numeric',k+1)
+for (j in 1:(k+1)) {
+  flist[j]=fw(wlist[,j])}
+```
+
+```{r}
+min(flist)
+plot(log(flist-min(flist)),xlab = "iteration",ylab = "log(f(xk)-f(x*))",main = "Gradient Descent with backtracking line search")
+```

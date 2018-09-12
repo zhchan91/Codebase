@@ -1,0 +1,142 @@
+---
+title: "Untitled"
+author: "Chen Zihao 915490404"
+date: "2017年11月19日"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+###Problem 2. Nonnegative Matrix Factorization
+
+Given an input matrix $X\in \mathbb{R}^{m\times n}$,we try to factorize it into $X\approx WH^T$ by solving
+$$
+(NMF)\min_{W\in\mathbb{R}^{m\times k},H\in\mathbb{R}^{n\times k}}\frac{1}{2}||A-WH^T||^2_F+\frac \lambda 2 ||W||^2_F+\frac \lambda 2 ||H||^2_F\\
+s.t. W_{ij}\ge0,H_{ij}\ge0\forall i,j
+$$
+We will use the cbcl dataset in "cbcl.txt". In this data, m=361,n=2,429, and we set k=49.
+
+(a) Apply a block-coordinate descent algorithm to solve NMF. At each iteration, we first fix W and update H, and then fix H and update W. For each subproblem, update W (or H) using projected gradient descent with 3 steps (see Algorithm 3). USe random initialization for W,H. Run the algorithm for 50 iterations and plot the objective value vs time cureve. Report the final objective function value you get.
+
+First we need to derive the gradient
+$$
+\triangledown_W f(W,H)=(WH^T-A)H+\lambda W\\
+$$
+$$
+\triangledown_H f(W,H)=(WH^T-A)^TW+\lambda H
+$$
+```{r}
+fW=function(W,H){
+  (W%*%t(H)-A)%*%H+lambda*W
+}
+
+fH=function(W,H){
+  t((W%*%t(H)-A))%*%W+lambda*H
+}
+
+#objective function
+f=function(W,H){
+  norm(as.matrix(A-W%*%t(H)),"F")^2/2+lambda/2*norm(W,"F")^2+lambda/2*norm(H,"F")^2
+}
+```
+
+```{r}
+A=read.table('C:/Users/Chan/Desktop/Files/STA250/Homework 2/hw2_data/cbcl.txt')
+A=as.matrix(A)
+m=nrow(A)
+n=ncol(A)
+k=49
+```
+
+```{r}
+#initial W and H randomly
+set.seed(100)
+W=matrix(runif(m*k,0,.5), m, k)
+H=matrix(runif(n*k,0,.5),n, k)
+
+#set eta
+eta=0.00001
+#set lambda
+lambda=1
+flist=f(W,H)
+
+for(i in 1:50){
+  for(j in 1:3){
+    W=W-eta*fW(W,H)#the new w
+    W[W<0]=0
+    }
+  for(j in 1:3){
+    H=H-eta*fH(W,H)#the new w
+    H[H<0]=0
+  }
+  flist=cbind(flist,f(W,H))
+}
+```
+
+function value vs time curve and the final objective function value
+```{r}
+plot(as.vector(flist[-1]),xlab = "iteration time",ylab = "function value",main = "objective function value vs time curve")
+plot(as.vector(flist[-(1:21)]),xlab = "iteration time",ylab = "function value",main = "objective function value vs time curve with last 30 times")
+f(W,H)
+```
+(b) Now try block coordinate descent by defining each column of W,H as a block. So there are totally 2k blocks (See Algorithm 4). For updating $w_i$(for some $1\le i\le k$), we want to minimize the function with respect to $w_i$. Derive the corresponding subproblem and show the close form solution of $w_i$. Similarly run 50 iterations, report the final objective function value, and plot the objective function value vs time curve. Compare the two methods and discuss your findings.
+
+Fix H and the remain column of W, the subproblem is that 
+$$
+\min_{w_i}\frac 1 2 ||A^*-w_ih_i^T||^2_F+\frac\lambda 2 ||w_i||^2_F
+$$
+where 
+$$
+A^*=A-\sum_{k\ne i}w_kh_k
+$$
+First we need to derive the gradient
+$$
+\triangledown_{W_i} f(W,H)=(WH^T-A)h_i+\lambda w_i\\
+\triangledown_{h_i} f(W,H)=(WH^T-A)^Tw_i+\lambda h_i
+$$
+
+
+```{r}
+fWi=function(W,H,i){
+  (W%*%t(H)-A)%*%H[,i]+lambda*W[,i]
+}
+
+fHi=function(W,H,i){
+  t((W%*%t(H)-A))%*%W[,i]+lambda*H[,i]
+}
+```
+
+```{r}
+#initial W and H randomly,seed is set so they are the same as (a)
+set.seed(100)
+W=matrix(runif(m*k), m, k)
+H=matrix(runif(n*k), n, k)
+
+#set eta
+eta=0.00001
+#set lambda
+lambda=1
+flist=f(W,H)
+
+for(i in 1:50){
+  for(j in 1:k){
+    W[,j]=W[,j]-eta*fWi(W,H,j)#the new wj
+    W[W<0]=0
+    }
+  for(j in 1:k){
+    H[,j]=H[,j]-eta*fHi(W,H,j)#the new w
+    H[H<0]=0
+  }
+  flist=cbind(flist,f(W,H))
+}
+```
+
+function value vs time curve and the final objective function value
+```{r}
+plot(as.vector(flist[-1]),xlab = "iteration time",ylab = "function value",main = "objective function value vs time curve")
+plot(as.vector(flist[-(1:21)]),xlab = "iteration time",ylab = "function value",main = "objective function value vs time curve with last 30 times")
+f(W,H)
+```

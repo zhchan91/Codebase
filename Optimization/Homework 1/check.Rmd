@@ -1,0 +1,18 @@
+---
+title: "Sta 250 homework1"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE#,fig.width=4, fig.height=3 #,fig.path='Figs/'
+)
+```
+$$
+\begin{eqnarray}
+\alpha f(x_1,x_2)+(1-\alpha)f(y_1,y_2)&=&\alpha||x_1-x_2||^2_2+(1-\alpha)||y_1-y_2||^2_2\\
+&=&\sum_{i=1}^2[\alpha(x_{1i}-x_{2i})^2+(1-\alpha)(y_{1i}-y_{2i})^2]\\
+f(\alpha x_1+(1-\alpha)y_1,\alpha x_2+(1-\alpha)y_2))&=&\sum_{i=1}^2[\alpha(x_{1i}-x_{2i})+(1-\alpha)(y_{1i}-y_{2i})]^2
+\end{eqnarray}
+$$

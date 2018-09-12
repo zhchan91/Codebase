@@ -1,0 +1,73 @@
+---
+title: "Sta 250 homework1 part2"
+output: html_document
+---
+####(c) larger data.
+```{r}
+#read data
+#x<-read.table('E:/hw1_data/X_heart')
+#y<-read.table('E:/hw1_data/y_heart')
+x<-read.table('E:/hw1_data/x_epsilonsubset')
+y<-read.table('E:/hw1_data/y_epsilonsubset')
+#add a constant variables and put y in front
+X<-as.matrix(cbind(y,1,x))
+#the number of samples
+n=nrow(X)
+#the number of variables
+p=ncol(X)-1
+#iteration times
+k=50
+```
+
+```{r fw1}
+#set f'(w) as a function
+fw1<-function(w){
+    #calculate f'(w)
+    fw=rowSums(apply(X,1,function(X){
+      e=exp(-X[1]*X[-1]%*%w)
+     X[-1]*as.numeric((-X[1]*e)/(1+e))
+    }))
+    fw=fw/n+w
+    fw
+}
+```
+
+```{r fw}
+#set f(w) as a function
+fw<-function(w){
+  f=1/2*sum(w^2)+1/n*sum(apply(X,1,function(X){log(1+exp(-X[1]*X[-1]%*%w))}))
+  f
+}
+```
+run the algorithm 2
+```{r}
+#initial w
+w=matrix(0, p, 1)
+#To record w
+wlist=matrix(0,p,(k+1))
+wlist[,1]=w
+
+for(j in 1:k){
+  g=fw1(w)
+  eta=1
+  while(fw(w-eta*g)-fw(w)>-0.01*eta*sum(g^2)){
+    eta=eta/2
+    if (eta<0.000000000001){
+      break#it seems to be endless loop? So i put this here
+    }
+  }
+  w=w-eta*g#the new w
+  wlist[,j+1]=w#record w
+}
+```
+
+```{r}
+flist=vector(mode='numeric',k+1)
+for (j in 1:(k+1)) {
+  flist[j]=fw(wlist[,j])}
+```
+
+```{r}
+min(flist)
+plot(log(flist-min(flist)),xlab = "iteration",ylab = "log(f(xk)-f(x*))",main = "Gradient Descent with backtracking line search for bigger data")
+```
