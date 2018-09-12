@@ -1,0 +1,349 @@
+---
+title: "STA 243 Assignment 5"
+author: "Chen Zihao(50%) Man Pan(50%)"
+output:
+  pdf_document: default
+  html_document: default
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,fig.height=3)
+```
+
+```{r}
+n = 200
+
+x = seq(0,1,length= (n+1))[-(n+1)]+0.5/n
+
+phi = function(x) exp((-x^2)/2)/sqrt(2*pi)
+f = function(x) 1.5*phi((x-0.35)/0.15)-phi((x-0.8)/0.04)
+
+#Noise level
+nl = function(j){f(x) + (0.02+0.04*(j-1)^2)*rnorm(n,0,1)}
+
+#Design density
+dd = function(j){
+  x = qbeta(x,(j+4)/5,(11-j)/5)
+  y = f(x)+0.1*rnorm(n,0,1)
+  return(list(x=x,y=y))
+} 
+
+
+#Spatial variation
+sv = function(j){
+  m1 = 2^((9-4*j)/5)
+  m2 = 2*pi*(1+m1)
+  (x*(1-x))*sin(m2/(x+m1))+0.2*rnorm(n,0,1)
+}
+
+#Variance function
+vf = function(j){
+  vj = (0.15*(1 + 0.4*(2*j-7)*(x-0.5)))^2
+  f(x) + sqrt(vj)*rnorm(n,0,1)
+}
+```
+
+
+1.
+
+We fix the number of knots as 30, and place them equi-spaced within the domain of the data. Let $x_{(1)} = \min(x_i)$ and $x_{(n)} = \max(x_i)$ so that we have the location of the $k$th knot,$t_k = x_{(1)}+ k\frac {x_{(n)}-x_{(1)}}{31}$.
+
+Equi-spaced knots may cause a issue that there may be no data within two knots. In this homework it will not happen because $\{x_i\}$ is a arithmetic series. In this problem, it is equivalent to take all the unique x out and then choose the quantile points which will ensure all the subspace have at least data if the number of knots is appropriate.
+
+the design matrix is as below.
+$$
+X =\left[
+\begin{matrix}
+1 & X_1 & X_1^2 & X_1^3 & (X_1-t_1)_+^3 & (X_1-t_2)_+^3 & ... & (X_1-t_{30})_+^3\\
+1 & X_2 & X_2^2 & X_2^3 & (X_2-t_1)_+^3 & (X_2-t_2)_+^3 & ... & (X_2-t_{30})_+^3\\
+... & ... & ... & ... & ... & ... & ...& ... \\
+1 & X_n & X_n^2 & X_n^3 & (X_n-t_1)_+^3 & (X_n-t_2)_+^3 & ... & (X_n-t_{30})_+^3\\
+\end{matrix}
+\right]
+$$
+we can get
+$$
+\hat f=X\hat\beta=H_{\lambda}Y = X(X^\top X+\lambda D)^{-1}X^\top Y
+$$
+where $D = diag(0,0,0,0,1,1,...,1)$ is a $34\times34$ matrix.
+
+```{r}
+# build the design matrix
+p <- 3
+num.knots <- 30
+knots <- quantile(unique(x), seq(0, 1, length = num.knots + 2))[-c(1, (num.knots + 2))]
+xpoly <- rep(1, n)
+for (j in 1:p) xpoly <- cbind(xpoly, x^j)
+xspline <- outer(x, knots, "-")
+xspline <- pmax(xspline, 0)^p
+X <- cbind(xpoly, xspline)
+
+# penalty matrix
+D <- diag(c(rep(0, ncol(xpoly)), rep(1, ncol(xspline))))
+
+#H_lambda matrix
+H_lambda = function(y, X, D, lambda){
+  tmp <- solve( t(X) %*% X + lambda * D, t(X)) #(XTX)^-1 XT
+  H <- X %*% tmp
+  return(H)
+}
+```
+
+
+(a)
+
+### Cross- validation (CV)
+
+$$
+\begin{split}
+\sum_{i=1}^n(y_i-\hat f_{-i})^2 \approx \sum_{i=1}^n(\frac {y_i - \hat f_i}{1-h_{ii}})^2
+\end{split}
+$$
+where $\{h_ii\}$ is the diagonal elements of $H_{\lambda}$
+```{r}
+cv <- function(y, X, D, lambda) 
+{ 
+  # y is the response vector
+  # X is the big design matrix
+  # D is the penalty matrix
+  # lambda is the value of the penalty constant to be evaluated
+  
+  H <- H_lambda(y, X, D, lambda)
+  y_hat <- H %*% y
+  r <- (y - y_hat)
+  return( sum( r^2  / (1 - diag(H))^2 ))
+}
+
+pen.ls.cv <- function(y, X, D, lambdas) {
+  ll <- length(lambdas)
+  # CVs for the LS estimator
+  cvs <- rep(0, ll)
+  for(i in 1:ll) 
+  {
+    cvs[i] <- cv(y, X, D, lambdas[i])
+  }
+  
+  # find the best lambda
+  lam <- max( lambdas[ cvs == min(cvs) ] )
+
+  # get y_hat and residuals
+  H <- H_lambda(y, X, D, lam)
+  yhat.ls <- H %*% y
+  residuals <-  y - yhat.ls
+  
+  return(list(residuals=residuals, yhat = yhat.ls, lam=lam, cv=min(cvs)))
+}
+```
+
+We use Noise level (j=3) in the paper to test our algorithm
+
+```{r}
+y = nl(3)
+lambdas <- seq(0, 0.5, length = 1000)
+plot(x,pen.ls.cv(y,X,D,lambdas)$yhat,type="l",xlab = "",ylab = "",main = paste("CV:the best lambda is",pen.ls.cv(y,X,D,lambdas)$lam))
+par(new=TRUE)
+plot(x,y,axes = FALSE,xlab = "", ylab = "")
+```
+
+### Generalized CV (GCV)
+
+replace $h_{ii}$ by the average of the diagonal elements of $H_\lambda$
+$$
+GCV = \sum_{i=1}^n(\frac {y_i - \hat f_i}{1-\frac {tr(H_\lambda)}{n}})^2
+$$
+
+```{r}
+gcv <- function(y, X, D, lambda) 
+{ 
+  # y is the response vector
+  # X is the big design matrix
+  # D is the penalty matrix
+  # lambda is the value of the penalty constant to be evaluated
+  H <- H_lambda(y, X, D, lambda)
+  y_hat <- H %*% y
+  r <- (y - y_hat)
+  return( n * sum( r^2 ) / (n - sum(diag(H)))^2 )
+}
+
+pen.ls.gcv <- function(y, X, D, lambdas) {
+  ll <- length(lambdas)
+  # CVs for the LS estimator
+  gcvs <- rep(0, ll)
+  for(i in 1:ll) 
+  {
+    gcvs[i] <- gcv(y, X, D, lambdas[i])
+  }
+  
+  # find the best lambda
+  lam <- max( lambdas[ gcvs == min(gcvs) ] )
+
+  # get y_hat and residuals
+  H <- H_lambda(y, X, D, lam)
+  yhat.ls <- H %*% y
+  residuals <-  y - yhat.ls
+  
+  return(list(residuals=residuals, yhat = yhat.ls, lam=lam, gcv=min(gcvs)))
+}
+```
+
+We use Noise level (j=3) in the paper to test our algorithm
+
+```{r}
+#y = nl(3)
+lambdas <- seq(0, 0.5, length = 1000)
+plot(x,pen.ls.gcv(y,X,D,lambdas)$yhat,type="l",xlab = "",ylab = "",main = paste("GCV:the best lambda is",pen.ls.gcv(y,X,D,lambdas)$lam))
+par(new=TRUE)
+plot(x,y,axes = FALSE,xlab = "", ylab = "")
+```
+
+(b) 
+
+### AICC
+
+```{r}
+aicc = function(y, X, D, lambda) {
+  n = length(y)
+  H <- H_lambda(y, X, D, lambda)
+  y_hat <- H %*% y
+  r <- (y - y_hat)
+  tr = sum(diag(H))
+  return(log(sum( r^2 ))+ 2*(tr+1)/(n-tr-2))
+}
+
+pen.ls.aicc <- function(y, X, D, lambdas) {
+  ll <- length(lambdas)
+  # CVs for the LS estimator
+  aiccs <- rep(0, ll)
+  for(i in 1:ll) 
+  {
+    aiccs[i] <- aicc(y, X, D, lambdas[i])
+  }
+  
+  # find the best lambda
+  lam <- max( lambdas[ aiccs == min(aiccs) ] )
+
+  # get y_hat and residuals
+  H <- H_lambda(y, X, D, lam)
+  yhat.ls <- H %*% y
+  residuals <-  y - yhat.ls
+  
+  return(list(residuals=residuals, yhat = yhat.ls, lam=lam, aicc=min(aiccs)))
+}
+```
+We use Noise level (j=3) in the paper to test our algorithm
+
+```{r}
+#y = nl(3)
+lambdas <- seq(0, 0.5, length = 1000)
+plot(x,pen.ls.aicc(y,X,D,lambdas)$yhat,type="l",xlab = "",ylab = "",main = paste("AICC:the best lambda is",pen.ls.aicc(y,X,D,lambdas)$lam))
+par(new=TRUE)
+plot(x,y,axes = FALSE,xlab = "", ylab = "")
+```
+
+(c)
+
+### Estimate the expectation of the risk($\lambda$)
+
+$y_i = f(x_i) +\epsilon_{i}$
+
+$$
+\begin{split}
+E||y-\hat f_\lambda||^2 &= E||f+e-H_\lambda(f+e)||^2\\
+& = E||(I-H_\lambda)(f+e)||^2\\
+& = E(((I-H_\lambda)(f+e))^\top((I-H_\lambda)(f+e)))\\
+& = E((f+e)^\top(I-H_\lambda)^\top(I-H_\lambda)(f+e))\\
+& = ||(I-H_\lambda)f||^2+E(f^\top(I-H_\lambda)^\top(I-H_\lambda)e)+E(e^\top(I-H_\lambda)^\top(I-H_\lambda)f)+E(e^\top(I-H_\lambda)^\top(I-H_\lambda)e)\\
+& = ||(I-H_\lambda)f||^2+E(e^\top(I-H_\lambda)^\top(I-H_\lambda)e)\\
+& = ||(I-H_\lambda)f||^2+E(e^\top(I-H_\lambda-H_\lambda^\top+H_\lambda^\top H_\lambda)e)\\
+& = ||(I-H_\lambda)f||^2+E(tr(e^\top(I-2H_\lambda+H_\lambda^\top H_\lambda)e))\\
+& = ||(I-H_\lambda)f||^2+E(tr((I-2H_\lambda+H_\lambda^\top H_\lambda)ee^\top))\\
+& = ||(I-H_\lambda)f||^2+tr(E((I-2H_\lambda+H_\lambda^\top H_\lambda)ee^\top))\\
+& = ||(I-H_\lambda)f||^2+\sigma^2 (tr(n-2tr(H_\lambda)+tr(H_\lambda^\top H_\lambda))\\
+& = ||(I-H_\lambda)f||^2+\sigma^2 \{tr(tr(H_\lambda H_\lambda^\top)-2tr(H_\lambda)+n\}\\
+\end{split}
+$$
+now consider $E||f-\hat f_\lambda||^2$
+$$
+\begin{split}
+E||f-\hat f_\lambda||^2 &= E||f-y+y-H_\lambda y||^2\\
+& = E||f-y||^2 + 2E(f-y)^\top(y-H_\lambda y) + E||y-H_\lambda y||^2\\
+& = n\sigma^2 - 2E\epsilon^\top(I-H_\lambda)y+E||y-H_\lambda y||^2\\
+& = n\sigma^2 - 2E\epsilon^\top(I-H_\lambda)\epsilon+E||y-H_\lambda y||^2\\
+& = n\sigma^2 - 2tr(I-H_\lambda)\sigma^2+||y-H_\lambda y||^2\\
+& = E||y-\hat f_\lambda||^2+(2tr(H_\lambda)-n)\sigma^2\\
+\end{split}
+$$
+We use the folowing to estimate the $E||f-\hat f_\lambda||^2$
+$$
+||y-\hat f_\lambda||^2+(2tr(H_\lambda)-n)\hat\sigma^2
+$$
+still need to estimate $\hat \sigma^2$
+
+$$
+\hat\sigma^2 = \frac 1 {n-1}\sum_{i=1}^n(y_i-\bar y)^2
+$$
+
+where $\bar y = \frac 1 n \sum_{i=1}^ny_i$
+
+
+```{r}
+#expect_risk
+er = function(y, X, D, lambda) {
+  n = length(y)
+  sigma = var(y)
+  H <- H_lambda(y, X, D, lambda)
+  y_hat <- H %*% y
+  r <- (y - y_hat)
+  tr = sum(diag(H))
+  return( sum( r^2 )+ 2*(tr-n)*sigma)
+}
+
+pen.ls.er <- function(y, X, D, lambdas) {
+  ll <- length(lambdas)
+  # CVs for the LS estimator
+  ers <- rep(0, ll)
+  for(i in 1:ll) 
+  {
+    ers[i] <- er(y, X, D, lambdas[i])
+  }
+  
+  # find the best lambda
+  lam <- max( lambdas[ ers == min(ers) ] )
+
+  # get y_hat and residuals
+  H <- H_lambda(y, X, D, lam)
+  yhat.ls <- H %*% y
+  residuals <-  y - yhat.ls
+  
+  return(list(residuals=residuals, yhat = yhat.ls, lam=lam, er=min(ers)))
+}
+```
+
+We use Noise level (j=3) in the paper to test our algorithm
+
+```{r}
+#y = nl(3)
+lambdas <- seq(0, 0.5, length = 1000)
+plot(x,pen.ls.er(y,X,D,lambdas)$yhat,type="l",xlab = "",ylab = "",main = paste("expect risk:the best lambda is",pen.ls.aicc(y,X,D,lambdas)$lam))
+par(new=TRUE)
+plot(x,y,axes = FALSE,xlab = "", ylab = "")
+```
+
+(d)
+```{r}
+lambdas <- seq(0, 1, length = 100)
+erlist = data.frame()
+aicclist = data.frame()
+cvlist = data.frame()
+gcvlist = data.frame()
+for (j in 1:6){
+  for (i in 1:100){
+    y = nl(j)
+    aicclist[j,i] = pen.ls.aicc(y,X,D,lambdas)$lam
+    cvlist[j,i] = pen.ls.cv(y,X,D,lambdas)$lam
+    gcvlist[j,i] = pen.ls.gcv(y,X,D,lambdas)$lam
+    erlist[j,i] = pen.ls.er(y,X,D,lambdas)$lam
+  }
+}
+
+```
+
