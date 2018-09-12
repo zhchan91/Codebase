@@ -1,0 +1,110 @@
+---
+title: 'STA Homework 6 1.'
+author: "Chen Zihao 915490404"
+output: pdf_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,fig.height=3)
+```
+
+### 1.
+
+(a)
+
+$$
+\rho_{Y,Z} = \frac{cov(X,Y)}{\sigma_X\sigma_Y}=\frac {E[(X-\mu_X)(Y-\mu_Y)]}{\sigma_X\sigma_Y}
+$$
+Use Pearson correlation coefficient as the estimate of the correlation coefficient.
+
+$$
+r=\frac {\sum_{i=1}^n(X_i-\bar X)(Y_i-\bar Y)}{\sqrt {\sum_{i=1}^n(X_i-\bar X)^2}\sqrt{\sum_{i=1}^n(Y_i-\bar Y)^2}}
+$$
+
+
+```{r}
+Y = c(576,635,558,578,666,580,555,661,651,605,653,575,545,572,594)
+Z = c(3.39,3.30,2.81,3.03,3.44,3.07,3.00,3.43,3.36,3.13,3.12,2.74,2.76,2.88,3.96)
+```
+
+(b)
+
+Estimate the standard error of the Pearson correlation coefficient.
+
+using jackknife
+$$
+\hat {se}_{jack}=\{\frac {n-1}n\sum[\hat r_{(i)}-\hat r_{(.)}]^2\}^{1/2}
+$$
+
+we can get $\hat {se}_{jack}$ is
+```{r}
+r = c()
+n = length(Y)
+for (i in 1:n){
+  r[i]=cor(Y[-i],Z[-i])
+}
+se_jack = ((n-1)/n*sum((r-mean(r))^2))^(1/2)
+se_jack
+```
+
+using bootstrap
+
+1. select B independent bootstrap samples
+2. calculate the bootstrap replication corresponding to each bootstrap samples.
+3. estimate the S.E. by the sample standard deviation of the B replicates.
+
+we can get $\hat {se}_{B}$ is
+```{r}
+set.seed(2018)
+r = c()
+B = 200
+for (i in 1:B){
+  sample = floor(runif(length(Y),1,length(Y)+1))
+  r[i]=cor(Y[sample],Z[sample])
+}
+
+se_B = (sum((r-mean(r))^2)/(B-1))^(1/2)
+se_B
+```
+
+(c)
+
+#### 1. using "normal theory"
+$$\hat \theta_{(.)}\pm \Phi(0.975)\hat {se}_B$$
+
+the C.I is 
+```{r}
+c(mean(r)-qnorm(0.975)*se_B,mean(r)+qnorm(0.975)*se_B)
+```
+
+#### 2. using bootstrap $t$-interval approaches.
+
+1. generate B bootstrap samples 
+2. for each sample, calculate the Pearson correlation coefficient and estimated standard error (using bootstrap in the bootstrap, as in (b) to get the estimated standard error).
+3. calculate $z^*(b)=\frac {\hat \theta(b)-\hat\theta}{\hat{se}(b)}$ for each b.
+4. get the $\alpha$ percentile of $z^*(b)$ is estimated by the value $\hat t ^{(\alpha)}$ such that $\#\{z^*(b)<\hat t ^{(\alpha)}\}/B=\alpha$
+5. the bootstrap-t confidence interval is $(\hat\theta-\hat t^{(1-\alpha)}\hat{se},(\hat\theta-\hat t^{(\alpha)}\hat{se})$,where $\hat{se}$ is the standard deviation of $\hat\theta^*(b)$'s.
+
+The C.I is
+```{r}
+B=1000
+theta = c()
+se = c()
+for(i in 1:B){
+  sample = ceiling(runif(length(Y),0,length(Y)))
+  sample_Y = Y[sample]
+  sample_Z = Z[sample]
+  theta[i] = cor(sample_Y,sample_Z)
+  r = c()
+  for (j in 1:200){    
+    sample2 = ceiling(runif(length(Y),0,length(Y)))
+    r[j] = cor(sample_Y[sample2],sample_Z[sample2])
+  }
+  se[i] = sd(r)
+}
+
+z=c()
+for (i in 1:length(se)){
+  z[i]=(theta[i]-mean(theta))/se[i]
+}
+c(mean(theta)-sort(z)[0.975*B]*sd(theta),mean(theta)-sort(z)[0.025*B]*sd(theta))
+```

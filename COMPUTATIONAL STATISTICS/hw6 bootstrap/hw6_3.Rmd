@@ -1,0 +1,427 @@
+---
+title: 'STA Homework 6 3.1'
+author: "Chen Zihao 915490404"
+output: pdf_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,fig.height=3)
+```
+
+For the genetic algorithm, I just copy the code from my homework assignment 2 here.
+
+Here is the result for the test function in Assignment 2.
+
+The true plot.
+```{r}
+truefunction<-function(x){
+  t <- c(0.1, 0.13, 0.15, 0.23, 0.25, 0.4, 0.44, 0.65, 0.76, 0.78, 0.81)
+  h <- c(4, -5, 3, -4, 5, -4.2, 2.1, 4.3, -3.1, 2.1, -4.2)
+  temp <- 0
+  for(i in 1:11) {
+    temp <- temp + h[i]/2 * (1 + sign(x - t[i]))
+    }
+  return(temp)
+  }
+n<-512
+x<-(0:(n-1))/n
+f<-truefunction(x)
+set.seed(0401)
+y<-f+rnorm(f)/3
+plot(x,y)
+lines(x,f)
+```
+
+```{r}
+S=300
+P=0.9
+Pc=0.05
+Nsame=20
+
+n = length(x)
+chromosomes1 = matrix(rbinom(n*S,1,0.5),S,n)
+chromosomes1[,1] = 0
+```
+
+```{r,echo=FALSE}
+pred = function (chrom,y){
+  bj = which (chrom == 1) #b1 to b_{B-1}
+  B = sum(chrom)+1
+  nhat = bj[-1]-bj[-B+1]
+  nhat = c(bj[1]-1,nhat,length(y)-bj[B-1]+1)
+  
+  yhat = rep(mean(y[1:(bj[1]-1)]),nhat[1])
+  
+  for (i in 1:(B-2)) {
+    yhat = c(yhat,rep(mean(y[bj[i]:(bj[i+1]-1)]),nhat[i+1]))
+  }
+  yhat = c(yhat,rep(mean(y[bj[(B-1)]:length(y)]),nhat[length(nhat)]))
+  yhat
+}
+
+MDL = function(chrom,y){
+  n = length(y)
+  
+  B = sum(chrom)+1 #the number of pieces
+  
+  #b_j where is the break points.
+  bj=which(chrom == 1)
+  
+  #how many obervations in each pieces. 
+  #Attention for the case when the first element of the chromosome is 1. 
+  #if it is the case, then the first piece will contain 0 observations in it.
+  nhat = bj[-1]-bj[-B+1]
+  nhat = c(bj[1]-1,nhat,length(y)-bj[B-1]+1)
+  if (is.na(nhat[1])){
+    MD=NA
+  } else {
+    MD = B*log(n)+sum(log(nhat))/2+n/2*log(sum((y-pred(chrom,y))^2)/n)
+    }
+  MD
+}
+
+AIC = function(chrom,y){
+  B = sum(chrom)+1
+  n = length(y)
+  n*log(sum((y-pred(chrom,y))^2)/n)+log(n)*2*B
+}
+
+value = function (chrom,y,method){
+  v = rep(0,nrow(chrom))
+  for (i in 1:nrow(chrom)){
+    if (method == 1) {
+      v[i] = MDL(chrom[i,],y)
+    } else if (method == 2){
+      v[i] = AIC(chrom[i,],y)
+    }
+  }
+  v
+}
+```
+
+```{r,echo=FALSE}
+Sort = function (chrom,y,method){
+  chrom[order(value(chrom,y,method),decreasing = TRUE),]
+}
+```
+
+```{r,echo=FALSE}
+crossover = function(chrom){
+  n = nrow(chrom)
+  p = ncol(chrom)
+  #the input should be ordered
+  
+  #select the parents
+  i1=ceiling(sqrt(2*ceiling(runif(1,0,n*(n+1)/2))+0.25)-0.5)
+  i2=ceiling(sqrt(2*ceiling(runif(1,0,n*(n+1)/2))+0.25)-0.5)
+  
+  a=chrom[i1,]
+  b=chrom[i2,]
+  
+  k = ceiling(runif(1,1,p))# 1<k<=p
+  
+  c(a[1:k-1],b[k:p])
+}
+
+mutation = function(chrom,Pc){
+  n = nrow(chrom)
+  i1=ceiling(sqrt(2*ceiling(runif(1,0,n*(n+1)/2))+0.25)-0.5)
+  a=chrom[i1,]
+  for (i in 2:ncol(chrom)){
+    k = rbinom(1,1,Pc)
+    if (k == 1){
+      a[i]=1-a[i]
+    }
+  }
+  a
+}
+```
+
+```{r,echo=FALSE}
+offspring = function(chrom,p,pc){
+  offs = chrom[nrow(chrom),] # keep the best chrom in the previous gen.
+  for (i in 2:nrow(chrom)){
+    j = rbinom(1,1,p)
+    if (j==1){
+      offs = rbind(offs,crossover(chrom))
+    } else{
+      offs = rbind(offs,mutation(chrom,pc))
+    }
+  }
+  offs
+}
+```
+
+```{r,echo=FALSE}
+GA = function (y,method){
+  S=300
+  p=0.9
+  pc=0.05
+  Nsame=20
+  
+  n = length(y)
+  chrom = matrix(rbinom(n*S,1,0.5),S,n)
+  chrom[,1] = 0
+  chrom = Sort(chrom,y,method)
+  
+  best = chrom[S,]
+  t=0
+  
+  while (t<Nsame){
+    previous = best
+    chrom = offspring(chrom,p,pc)
+    chrom = Sort(chrom,y,method)
+    best = chrom[S,]
+    if (all(previous == best)){
+      t = t+1
+    }else {t=0}
+  }
+  best
+}
+```
+
+```{r,echo=FALSE}
+#to make it a R function to make the out puts
+final = function(y,method){
+  #method: 1 is using MDL and 2 is using AIC
+  #y : the noise data
+  results = GA(y,method)
+  if (method == 1){
+    method = "MDL"
+  } else {
+    method = "AIC"
+  }
+  plot(x,y,main = paste("Genetic Algorithms with",method))
+  lines(x,pred(results,y))
+}
+```
+
+I just use the MDL method to generate the y and the plot.
+
+```{r,echo=FALSE}
+results = GA(y,1)
+plot(x,y,main = "Genetic Algorithms with MDL")
+yhat = pred(results,y)
+lines(x,yhat)
+```
+
+for the sencond model
+
+```{r}
+f2 = (4*x-2)+2*exp(-16*(4*x-2)^2)
+noise = c()
+for (i in 1:n){
+  noise[i] = rnorm(1,0,abs(f2[i]/5))
+}
+y2 = f2+noise
+plot(x,y2,cex = 0.3,main = "True line and the dot plot")
+lines(x,f2)
+```
+
+```{r,echo=FALSE}
+results2 = GA(y2,1)
+plot(x,y2,main = "Genetic Algorithms with MDL",cex = 0.3)
+yhat2 = pred(results2,y2)
+lines(x,yhat2)
+```
+
+```{r}
+func = function(y){pred(GA(y,1),y)}
+```
+
+(b)
+
+part 1
+
+Get the residuals of the model and resample the residuals then obtain the bootstrap sample.
+
+```{r}
+boot_re = function(yhat,y,B){
+  #get the residuals
+  residual = y - yhat
+  #resample the residuals ans get the bootstrap sample
+  r = matrix(0,B,length(y))
+  for (i in 1:B){
+    sample = ceiling(runif(length(y),0,length(y)))
+    r[i,] = y + residual[sample]
+  }
+  return(r)
+}
+
+boot_sample1 = boot_re(yhat,y,1000)
+boot_sample2 = boot_re(yhat2,y2,1000)
+```
+
+and then run the algorithm to get 200 times bootstrap predicted value.
+
+```{r}
+library(snow)
+cl = makeCluster(7)
+clusterExport(cl,c("pred","GA","Sort","value","MDL","offspring","crossover","mutation") )
+result = parApply(cl,boot_sample1,1,func)
+result2 = parApply(cl,boot_sample2,1,func)
+stopCluster(cl)
+```
+
+consturct pointwise C.I. and plot it like below
+
+```{r}
+k = 100
+CI1 = result[,c(1,2)]
+CI2 = result2[,c(1,2)]
+for (i in 1:n){
+  CI1[i,] = c(yhat[i]-qnorm(0.975)*sd(result[i,]),yhat[i]+qnorm(0.975)*sd(result[i,]))
+  CI2[i,] = c(yhat2[i]-qnorm(0.975)*sd(result[i,]),yhat2[i]+qnorm(0.975)*sd(result[i,]))
+  #CI1[i,]=sort(result[i,])[c(max(1,floor(0.025*k)),max(1,ceiling(0.975*k)))]
+  #CI2[i,]=sort(result2[i,])[c(max(1,floor(0.025*k)),max(1,ceiling(0.975*k)))]
+}
+```
+
+```{r,fig.height=6}
+plot(x,y,main = "Genetic Algorithms with MDL",cex = 0.3)
+lines(x,CI1[,1])
+lines(x,CI1[,2])
+lines(x,f,col="red")
+```
+
+```{r,fig.height=6}
+plot(x,y2,main = "Genetic Algorithms with MDL",cex = 0.3)
+lines(x,CI2[,1])
+lines(x,CI2[,2])
+lines(x,f2,col="red")
+```
+
+part 2 
+
+bootstrapping pairs
+
+resample pairs from the original data and then get the predicted values and consturcted the CI pointwise. plot it like below
+
+```{r}
+boot_pairs = function(x,y,B){
+  
+  order_boot = matrix(0,B,length(y))
+  y_boot = matrix(0,B,length(y))
+  for (i in 1:B){
+    #get the random index
+    sample = sort(ceiling(runif(length(y),0,length(y))))
+    #get the sample
+    order_boot[i,] = sample
+    y_boot[i,] = y[sample]
+  }
+  return(list(order=order_boot,y=y_boot))
+}
+bp = boot_pairs(x,y,1000)
+bp1o = bp$order
+bp1y = bp$y
+bp2 = boot_pairs(x,y2,1000)
+bp2o = bp2$order
+bp2y = bp2$y
+```
+
+
+```{r}
+cl = makeCluster(7)
+clusterExport(cl,c("pred","GA","Sort","value","MDL","offspring","crossover","mutation") )
+result3 = parApply(cl,bp1y,1,func)
+result4 = parApply(cl,bp2y,1,func)
+stopCluster(cl)
+```
+
+```{r}
+CI3 = matrix(0,n,2)
+CI4 = matrix(0,n,2)
+for (i in 1:n){
+  a = result3[bp1o == i]
+  CI3[i,] = c(yhat[i]-qnorm(0.975)*sd(a),yhat[i]+qnorm(0.975)*sd(a))
+  a = result4[bp1o == i]
+  CI4[i,] = c(yhat2[i]-qnorm(0.975)*sd(a),yhat2[i]+qnorm(0.975)*sd(a))
+  # a = sort(result3[bp1o == i])
+  # k = length(a)
+  # CI3[i,]=a[c(max(1,floor(0.025*k)),max(1,ceiling(0.975*k)))]
+  # 
+  # a = sort(result4[bp2o == i])
+  # k = length(a)
+  # CI4[i,]=a[c(max(1,floor(0.025*k)),max(1,ceiling(0.975*k)))]
+}
+```
+
+```{r,fig.height=6}
+plot(x,y,main = "Genetic Algorithms with MDL",cex = 0.3,ylim = c(min(CI3),max(CI3)))
+lines(x,CI3[,1])
+lines(x,CI3[,2])
+lines(x,f,col="red")
+```
+
+```{r,fig.height=6}
+plot(x,y2,main = "Genetic Algorithms with MDL",cex = 0.3,ylim = c(min(CI4),max(CI4)))
+lines(x,CI4[,1])
+lines(x,CI4[,2])
+lines(x,f2,col="red")
+```
+
+```{r}
+boot_pairs2 = function(x,y,B){
+  
+  order_boot = matrix(0,B,length(y))
+  y_boot = matrix(0,B,length(y))
+  for (i in 1:B){
+    #get the random index
+    ord = unique(ceiling(runif(length(y),0,length(y))))
+    sample = sort(ord)
+    #get the sample
+    
+    for (j in 1:length(sample)){
+      order_boot[i,j] = sample[j]
+      y_boot[i,j] = y[sample[j]]
+    }
+  }
+  return(list(order=order_boot,y=y_boot))
+}
+bp_2 = boot_pairs2(x,y,98*4)
+bp1o2 = bp_2$order
+bp1y2 = bp_2$y
+bp2_2 = boot_pairs2(x,y2,98*4)
+bp2o2 = bp_2$order
+bp2y2 = bp_2$y
+```
+
+
+```{r}
+cl = makeCluster(7)
+clusterExport(cl,c("pred","GA","Sort","value","MDL","offspring","crossover","mutation") )
+result5 = parApply(cl,bp1y2,1,func)
+result6 = parApply(cl,bp2y2,1,func)
+stopCluster(cl)
+```
+
+```{r}
+CI5 = matrix(0,n,2)
+CI6 = matrix(0,n,2)
+for (i in 1:n){
+  # a = result3[bp1o == i]
+  # CI3[i,] = c(yhat[i]-qnorm(0.975)*sd(a),yhat[i]+qnorm(0.975)*sd(a))
+  # a = result4[bp1o == i]
+  # CI4[i,] = c(yhat2[i]-qnorm(0.975)*sd(a),yhat2[i]+qnorm(0.975)*sd(a))
+  a = sort(result5[bp1o2 == i])
+  k = length(a)
+  CI5[i,]=a[c(max(1,floor(0.025*k)),max(1,ceiling(0.975*k)))]
+
+  a = sort(result6[bp2o2 == i])
+  k = length(a)
+  CI6[i,]=a[c(max(1,floor(0.025*k)),max(1,ceiling(0.975*k)))]
+}
+```
+
+```{r,fig.height=6}
+plot(x,y,main = "Genetic Algorithms with MDL",cex = 0.3)#,ylim = c(min(CI5),max(CI5)))
+lines(x,CI5[,1])
+lines(x,CI5[,2])
+lines(x,f,col="red")
+```
+
+```{r,fig.height=6}
+plot(x,y2,main = "Genetic Algorithms with MDL",cex = 0.3,ylim = c(min(CI6,na.rm = TRUE),max(CI6,na.rm = TRUE)))
+lines(x,CI6[,1])
+lines(x,CI6[,2])
+lines(x,f2,col="red")
+```

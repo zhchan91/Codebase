@@ -1,0 +1,101 @@
+---
+title: 'STA Homework 6 2.'
+author: "Chen Zihao 915490404"
+output: pdf_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,fig.height=3)
+```
+
+### 2.
+
+(a) Find the distribution.
+
+$$
+\begin{split}
+P(X_{\max}<x) &= \prod_{i=1}^{n}P(X_i<x)\\
+& = (x/\theta)^n\\
+f_{X_{\max}}(x)&=\frac {nx^{n-1}} {\theta^n}
+\end{split}
+$$
+
+so that we get the pdf of $X_{\max}$
+
+(b) Derive the analytic expression for the variance.
+
+$$
+\begin{split}
+E(\hat\theta)&=\int_0^\theta x\frac {nx^{n-1}} {\theta^n}dx\\
+& = \frac n {\theta^n}\times\frac 1 {n+1} x^{n+1}|_0^\theta\\
+& = \frac n {n+1}\theta\\
+E(\hat\theta^2)&=\int_0^\theta x^2\frac {nx^{n-1}} {\theta^n}dx\\
+& = \frac n {\theta^n}\times \frac 1 {n+2}x^{n+2}|_0^\theta\\
+& = \frac n {n+2}\theta^2\\
+Var(\hat\theta) &= E(\hat\theta^2)-E(\hat\theta)^2\\
+ & = \frac n {n+2}\theta^2-(\frac n {n+1}\theta)^2\\
+ & = \frac {n\theta^2}{(n+1)^2(n+2)}
+\end{split}
+$$
+
+(c) Generate a data set of size $n = 50$ and $\theta = 3$. Then generate $B = 5000$ bootstrap samples using parametric bootstrap. Use the bootstrap samples to approximate $Var_{F_\theta}(\hat\theta)$. Compare your answer to (b).
+
+Take the maximum of the sample as the $\hat\theta$, simulate bootstrap samples from unif(0,$\hat \theta$)
+
+the parametric bootstrap result is 
+
+```{r}
+set.seed(201806)
+X = runif(50,0,3)
+r1=c()
+for (i in 1:5000){
+  sample = runif(length(X),0,max(X))
+  r1[i] = max(sample)
+}
+var(r1)
+```
+
+
+the answer to (b) is 
+```{r}
+50*3^2/((50+1)^2*(50+2))
+```
+
+They are close.
+
+(d)
+
+the nonparametric bootstrap samples results is
+```{r}
+r2=c()
+for (j in 1:5000){    
+  sample = ceiling(runif(length(X),0,length(X)))
+  r2[j] = max(X[sample])
+}
+var(r2)
+```
+
+(e)
+
+```{r}
+hist(r1,main = "The parametric bootstrap",xlab = "theta hat *")
+hist(r2,main = "The non-parametric bootstrap",xlab = "theta hat *")
+```
+
+(f)
+
+the true distribution of $\hat\theta$
+
+
+```{r}
+r3 = c()
+for (j in 1:5000){    
+  sample = runif(length(X),0,3)
+  r3[j] = max(sample)
+}
+hist(r3,main = "The 5000 samples of the theta hat from unif(0,3)",xlab = "theta hat")
+```
+
+The non-parametric plot did not look like the true one.
+
+The reason is that for each non-parametric bootstrap, the chance of not choosing the largest value of the sample as the $\hat\theta$ is (49/50)^50 = 0.3641697 which is very low.
+

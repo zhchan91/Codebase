@@ -1,0 +1,490 @@
+---
+title: 'STA Homework 6'
+author: "Chen Zihao 915490404"
+output: pdf_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,fig.height=3)
+```
+### 1.
+
+(a)
+
+$$
+\rho_{Y,Z} = \frac{cov(X,Y)}{\sigma_X\sigma_Y}=\frac {E[(X-\mu_X)(Y-\mu_Y)]}{\sigma_X\sigma_Y}
+$$
+Use Pearson correlation coefficient as the estimate of the correlation coefficient.
+
+$$
+r=\frac {\sum_{i=1}^n(X_i-\bar X)(Y_i-\bar Y)}{\sqrt {\sum_{i=1}^n(X_i-\bar X)^2}\sqrt{\sum_{i=1}^n(Y_i-\bar Y)^2}}
+$$
+
+
+```{r}
+Y = c(576,635,558,578,666,580,555,661,651,605,653,575,545,572,594)
+Z = c(3.39,3.30,2.81,3.03,3.44,3.07,3.00,3.43,3.36,3.13,3.12,2.74,2.76,2.88,3.96)
+```
+
+(b)
+
+Estimate the standard error of the Pearson correlation coefficient.
+
+using jackknife
+$$
+\hat {se}_{jack}=\{\frac {n-1}n\sum[\hat r_{(i)}-\hat r_{(.)}]^2\}^{1/2}
+$$
+
+we can get $\hat {se}_{jack}$ is
+```{r}
+r = c()
+n = length(Y)
+for (i in 1:n){
+  r[i]=cor(Y[-i],Z[-i])
+}
+se_jack = ((n-1)/n*sum((r-mean(r))^2))^(1/2)
+se_jack
+```
+
+using bootstrap
+
+1. select B independent bootstrap samples
+2. calculate the bootstrap replication corresponding to each bootstrap samples.
+3. estimate the S.E. by the sample standard deviation of the B replicates.
+
+we can get $\hat {se}_{B}$ is
+```{r}
+set.seed(2018)
+r = c()
+B = 200
+for (i in 1:B){
+  sample = floor(runif(length(Y),1,length(Y)+1))
+  r[i]=cor(Y[sample],Z[sample])
+}
+
+se_B = (sum((r-mean(r))^2)/(B-1))^(1/2)
+se_B
+```
+
+(c)
+
+1. using "normal theory"
+
+$\hat \theta_{(.)}\pm \Phi(0.975)\hat {se}_B$
+
+the C.I is 
+```{r}
+c(mean(r)-qnorm(0.975)*se_B,mean(r)+qnorm(0.975)*se_B)
+```
+
+2. using bootstrap $t$-interval approaches.
+
+1. generate B bootstrap samples 
+2. for each sample, calculate the Pearson correlation coefficient and estimated standard error (using bootstrap in the bootstrap, as in (b) to get the estimated standard error).
+3. calculate $z^*(b)=\frac {\hat \theta(b)-\hat\theta}{\hat{se}(b)}$ for each b.
+4. get the $\alpha$ percentile of $z^*(b)$ is estimated by the value $\hat t ^{(\alpha)}$ such that $\#\{z^*(b)<\hat t ^{(\alpha)}\}/B=\alpha$
+5. the bootstrap-t confidence interval is $(\hat\theta-\hat t^{(1-\alpha)}\hat{se},(\hat\theta-\hat t^{(\alpha)}\hat{se})$,where $\hat{se}$ is the standard deviation of $\hat\theta^*(b)$'s.
+```{r}
+B=1000
+theta = c()
+se = c()
+for(i in 1:B){
+  sample = ceiling(runif(length(Y),0,length(Y)))
+  sample_Y = Y[sample]
+  sample_Z = Z[sample]
+  theta[i] = cor(sample_Y,sample_Z)
+  r = c()
+  for (j in 1:200){    
+    sample2 = ceiling(runif(length(Y),0,length(Y)))
+    r[j] = cor(sample_Y[sample2],sample_Z[sample2])
+  }
+  se[i] = sd(r)
+}
+
+z=c()
+for (i in 1:length(se)){
+  z[i]=(theta[i]-mean(theta))/se[i]
+}
+c(mean(theta)-sort(z)[0.975*B]*sd(theta),mean(theta)-sort(z)[0.025*B]*sd(theta))
+```
+
+### 2.
+
+(a) Find the distribution.
+
+$$
+\begin{split}
+P(X_{\max}<x) &= \prod_{i=1}^{n}P(X_i<x)\\
+& = (x/\theta)^n\\
+f_{X_{\max}}(x)&=\frac {nx^{n-1}} {\theta^n}
+\end{split}
+$$
+
+so that we get the pdf of $X_{\max}$
+
+(b) Derive the analytic expression for the variance.
+
+$$
+\begin{split}
+E(\hat\theta)&=\int_0^\theta x\frac {nx^{n-1}} {\theta^n}dx\\
+& = \frac n {\theta^n}\times\frac 1 {n+1} x^{n+1}|_0^\theta\\
+& = \frac n {n+1}\theta\\
+E(\hat\theta^2)&=\int_0^\theta x^2\frac {nx^{n-1}} {\theta^n}dx\\
+& = \frac n {\theta^n}\times \frac 1 {n+2}x^{n+2}|_0^\theta\\
+& = \frac n {n+2}\theta^2\\
+Var(\hat\theta) &= E(\hat\theta^2)-E(\hat\theta)^2\\
+ & = \frac n {n+2}\theta^2-(\frac n {n+1}\theta)^2\\
+ & = \frac {n\theta^2}{(n+1)^2(n+2)}
+\end{split}
+$$
+
+(c) Generate a data set of size $n = 50$ and $\theta = 3$. Then generate $B = 5000$ bootstrap samples using parametric bootstrap. Use the bootstrap samples to approximate $Var_{F_\theta}(\hat\theta)$. Compare your answer to (b).
+
+Take the maximum of the sample as the $\hat\theta$, simulate bootstrap samples from unif(0,$\hat \theta$)
+
+the parametric bootstrap result is 
+
+```{r}
+set.seed(201806)
+X = runif(50,0,3)
+r1=c()
+for (i in 1:5000){
+  sample = runif(length(X),0,max(X))
+  r1[i] = max(sample)
+}
+var(r1)
+```
+
+
+the answer to (b) is 
+```{r}
+50*3^2/((50+1)^2*(50+2))
+```
+
+They are close.
+
+(d)
+
+the nonparametric bootstrap samples results is
+```{r}
+r2=c()
+for (j in 1:5000){    
+  sample = ceiling(runif(length(X),0,length(X)))
+  r2[j] = max(X[sample])
+}
+var(r2)
+```
+
+(e)
+
+```{r}
+hist(r1,main = "The parametric bootstrap",xlab = "theta hat *")
+hist(r2,main = "The non-parametric bootstrap",xlab = "theta hat *")
+```
+
+(f)
+
+the true distribution of $\hat\theta$
+
+
+```{r}
+r3 = c()
+for (j in 1:5000){    
+  sample = runif(length(X),0,3)
+  r3[j] = max(sample)
+}
+hist(r3,main = "The 5000 samples of the theta hat from unif(0,3)",xlab = "theta hat")
+```
+
+The non-parametric plot did not look like the true one.
+
+The reason is that for each non-parametric bootstrap, the chance of not choosing the largest value of the sample as the $\hat\theta$ is (49/50)^50 = 0.3641697 which is very low.
+
+### 3.
+
+For the genetic algorithm, I just copy the code from my homework assignment 2 here.
+
+Here is the result for the test function in Assignment 2.
+
+The true plot.
+
+```{r}
+load("./environment/6.3.RData")
+```
+
+```{r}
+plot(x,y)
+lines(x,f)
+```
+
+I just use the MDL method to generate the y and the plot.
+
+```{r}
+plot(x,y,main = "Genetic Algorithms with MDL")
+yhat = pred(results,y)
+lines(x,yhat)
+```
+
+
+for the sencond model
+
+```{r}
+plot(x,y2,cex = 0.3,main = "True line and the dot plot")
+lines(x,f2)
+```
+
+```{r}
+plot(x,y2,main = "Genetic Algorithms with MDL",cex = 0.3)
+yhat2 = pred(results2,y2)
+lines(x,yhat2)
+```
+
+
+(b)
+The genetic algorithm i used did not control the maximum breakpoint number which may case a overfitting issue, although I am using MDL to penalize the number of breakpoit.
+
+part 1
+
+Get the residuals of the model, resample the residuals and then get the bootstarps samples to get 1000 times bootstraps predicted value. Consturct pointwise C.I. and plot it like below. 
+
+Although I already using the snow package to run it parallely, it cost me over a day to run the 1000 times boorstraps to get the four plots as below:
+```{r}
+k = 1000
+CI1 = result[,c(1,2)]
+CI2 = result2[,c(1,2)]
+for (i in 1:n){
+  # CI1[i,] = c(yhat[i]-qnorm(0.975)*sd(result[i,]),yhat[i]+qnorm(0.975)*sd(result[i,]))
+  # CI2[i,] = c(yhat2[i]-qnorm(0.975)*sd(result[i,]),yhat2[i]+qnorm(0.975)*sd(result[i,]))
+  CI1[i,]=sort(result[i,])[c(max(1,floor(0.025*k)),max(1,ceiling(0.975*k)))]
+  CI2[i,]=sort(result2[i,])[c(max(1,floor(0.025*k)),max(1,ceiling(0.975*k)))]
+}
+```
+
+```{r,fig.height=6}
+plot(x,y,main = "95% pointwise C.I using bootstrapping residuals (1)",cex = 0.3,ylim = c(min(CI1),max(CI1)))
+lines(x,CI1[,1])
+lines(x,CI1[,2])
+lines(x,f,col="red")
+```
+
+Comment on the shape of the confidence bands near jump points:
+The confidence bands are very wide in these jump points. It is because these break point may consider in the nearest two line.
+
+
+
+```{r,fig.height=6}
+plot(x,y2,main = "95% pointwise C.I using bootstrapping residuals (2)",cex = 0.3,ylim = c(min(CI2),max(CI2)))
+lines(x,CI2[,1])
+lines(x,CI2[,2])
+lines(x,f2,col="red")
+```
+
+
+
+part 2 
+
+bootstrapping pairs
+
+resample pairs from the original data and then get the predicted values and consturcted the pointwise C.I. plot it like below:
+```{r}
+CI3 = matrix(0,n,2)
+CI4 = matrix(0,n,2)
+for (i in 1:n){
+  # a = result3[bp1o == i]
+  # CI3[i,] = c(yhat[i]-qnorm(0.975)*sd(a),yhat[i]+qnorm(0.975)*sd(a))
+  # a = result4[bp1o == i]
+  # CI4[i,] = c(yhat2[i]-qnorm(0.975)*sd(a),yhat2[i]+qnorm(0.975)*sd(a))
+  a = sort(result3[which(bp1o == i)])
+  k = length(a)
+  CI3[i,]=a[c(max(1,floor(0.025*k)),max(1,ceiling(0.975*k)))]
+
+  a = sort(result4[which(bp2o == i)])
+  k = length(a)
+  CI4[i,]=a[c(max(1,floor(0.025*k)),max(1,ceiling(0.975*k)))]
+}
+```
+
+```{r,fig.height=6}
+plot(x,y,main = "95% pointwise C.I using bootstrapping pairs (1)",cex = 0.3,ylim = c(min(CI3),max(CI3)))
+lines(x,CI3[,1])
+lines(x,CI3[,2])
+lines(x,f,col="red")
+```
+
+```{r,fig.height=6}
+plot(x,y2,main = "95% pointwise C.I using bootstrapping pairs (2)",cex = 0.3,ylim = c(min(CI4),max(CI4)))
+lines(x,CI4[,1])
+lines(x,CI4[,2])
+lines(x,f2,col="red")
+```
+
+It seems the C.I did not work well in pairwise bootstraps. The reason I thought is that resampling pairs casuing a single point repeatly several times in my dataset, my algorithm take all the points equally i did not get the unique one.
+
+To test this, I add a unique() before the resampling and to try it one more time.
+
+I am running out of time, I did not have the time to rerun it in the scale of 1000 times to get a plot. But i did run it in 392 times(using 7 cores), the situation did not improve, the plot is very similar to the one above.
+
+The reason may be the genetic algorithm i uesed in this question is so sensitive to the sample data. As i mentioned before, i am running out of time to debug them or to make sure it is the truth.
+
+
+The following can construct confidence set for a break point:
+
+1. Generate bootstrap sample from the data.
+2. Estimate the location of the break points for each the bootstrap sample using genetic method( chromosome $c_i$ is the best chromosome in the $i$th bootstrap.
+3. get $C = \sum{c_i}$ as the count for all the points considering to be the break point.
+4. get $\alpha/2$ lowest value $C_(\alpha/2)$and the $1-\alpha/2$ highest value $C_{(1-\alpha/2)}$of $C$.
+5. the upper set of the confidence set is that $\{X_i|i:C_i>C_(1-\alpha/2)\}$,the lower set of the confidence set is that $\{X_i|i:C_i>C_(\alpha/2)\}$ where $C_i$ is the $i$th element in $C$
+
+### 4.
+
+(a)
+
+$$
+\begin{split}
+f(x) &= \lambda e^{-\lambda x}\\
+l(\lambda) &= logL(\lambda|X) = n\log\lambda - {\lambda{\sum x_i}}\\
+l'(\lambda) &= \frac n \lambda -\sum x_i\\
+\hat\lambda_{MLE}&= \frac n{\sum x_i}
+\end{split}
+$$
+
+(b)
+
+$$
+\sqrt{n}(\hat\lambda-\lambda)=\sqrt{n}(\frac1 {\bar X}-\frac 1 \mu)
+$$
+
+using the delta method,
+$$
+\sqrt{n}(f(x)-f(\mu))\rightarrow N(0,f'(x)^2\sigma^2)
+$$
+in distribution,
+
+$(\frac1x)'=-\frac 1 {x^2}$ and $Var(x)=\lambda^{-2}$, we can easily get
+
+$$
+\sqrt{n}(\hat\lambda-\lambda)=\sqrt{n}(\frac1 {\bar X}-\frac 1 \mu)\rightarrow N(0,\lambda^2)
+$$
+in distribution.
+
+the same situation using delta method, $(\log\frac{1}{x})'=-\frac 1 x$
+
+$$
+\sqrt{n}(\log\hat\lambda-\log\lambda)=\sqrt{n}(\log\frac1 {\bar X}-\log\frac 1 \mu)\rightarrow N(0,\lambda^2\times\frac 1 {\lambda^2})=N(0,1)
+$$
+in distribution
+
+(c)
+
+using the results from (b),when n is large
+
+$$
+\begin{split}
+\sqrt{n}(\log\hat\lambda-\log\lambda)&\rightarrow N(0,1)\\
+P(z(\alpha)<\sqrt{n}(\log\hat\lambda-\log\lambda)<z(1-\alpha))&\approx2\alpha\\
+P(-\frac{z(1-\alpha)}{\sqrt{n}}<\log\lambda-\log\hat\lambda<\frac{-z(\alpha)}{\sqrt{n}})&\approx2\alpha\\
+P(\frac{-z(1-\alpha)}{\sqrt{n}}+\log\hat\lambda<\log\lambda<\frac{-z(\alpha)}{\sqrt{n}}+\log\hat\lambda)&\approx2\alpha\\
+P(e^{\frac{-z(1-\alpha)}{\sqrt{n}}}\hat\lambda<\lambda<e^{\frac{-z(\alpha)}{\sqrt{n}}}\hat\lambda)&\approx2\alpha\\
+P(e^{\frac{-z(1-\alpha/2)}{\sqrt{n}}}\hat\lambda<\lambda<e^{\frac{-z(\alpha/2)}{\sqrt{n}}}\hat\lambda)&\approx\alpha\\
+\end{split}
+$$
+then we get the result.
+
+(d)
+
+we have $\lambda(\sum x_i)\sim G(n,1)$, then
+
+$$
+\begin{split}
+\alpha&=P(G^{-1}(\alpha/2)<\lambda\sum x_i<G^{-1}(1-\alpha/2))\\
+&=P(G^{-1}(\alpha/2)<n\frac\lambda{\hat\lambda_n}<G^{-1}(1-\alpha/2))\\
+&=P(\hat\lambda_nG^{-1}(\alpha/2)/n<\lambda<\hat\lambda_nG^{-1}(1-\alpha/2)/n)\\
+\end{split}
+$$
+
+(e)
+
+```{r}
+set.seed(10086)
+n=1000
+y = rep(0,n)
+exact = matrix(0,n,2)
+asymptotic = matrix(0,n,2)
+for (i in 1:n){
+  x = rexp(i,1)
+  y[i] = 1/mean(x)
+  exact[i,]=c(y[i]*qgamma(0.05/2,i,1)/i,y[i]*qgamma(1-0.05/2,i,1)/i)
+  asymptotic[i,]=c(y[i]*exp(-qnorm(1-0.05/2)/sqrt(i)),y[i]*exp(qnorm(1-0.05/2)/sqrt(i)))
+}
+plot(1:n,exact[,1],type = "l",col="red",ylim = c(min(exact),max(c(exact,asymptotic))),ylab = "lambda")
+lines(1:n,exact[,2],col = "red")
+lines(1:n,asymptotic[,1],col = "blue")
+lines(1:n,asymptotic[,2],col = "blue")
+```
+```{r}
+C1 = exact[,2]-exact[,1]
+C2 = asymptotic[,2]-asymptotic[,1]
+plot(1:n,C2,type = "l",col="blue",ylim = c(min(c(C1,C2)),max(c(C1,C2))),ylab = "length",main = "the CI distance")
+lines(1:n,C1,col = "red")
+```
+
+the blue line above is the asymptotic line, the red line is the line using the true distribution.
+
+I can not tell much difference from them. they match with each other after 100 iterations so that i decide to plot the 1 to 100 iteration plot.
+
+```{r}
+plot(1:100,exact[,1][1:100],type = "l",col="red",ylim = c(min(c(exact,asymptotic)),max(c(exact,asymptotic))),ylab = "lambda")
+lines(1:100,exact[,2][1:100],col = "red")
+lines(1:100,asymptotic[,1][1:100],col = "blue")
+lines(1:100,asymptotic[,2][1:100],col = "blue")
+```
+```{r}
+C1 = exact[,2]-exact[,1]
+C2 = asymptotic[,2]-asymptotic[,1]
+plot(1:100,C2[1:100],type = "l",col="blue",ylim = c(min(c(C1,C2)),max(c(C1,C2))),ylab = "length",main = "the CI distance")
+lines(1:100,C1[1:100],col = "red")
+```
+
+as we can see, the blue line from 1 to 10 is above the red line which means the asymptotic one is wider at the beginning and then we are about the same.
+
+the BCa confidence Interval(95%)
+
+```{r}
+#repeat the progress with the same seed.
+set.seed(10086)
+n=1000
+B = 200
+BCa = matrix(0,n,2)
+
+for (i in 1:n){
+  x = rexp(i,1)
+  lambda_hat = 1/mean(x)
+  lambda_star = c()
+  theta_j = c()
+  for (j in 1:i){
+    theta_j[j]=1/mean(x[-j])
+  }
+  a = sum((mean(theta_j)-theta_j)^3)/(6*(sum((mean(theta_j)-theta_j)^2))^(3/2))
+  for (j in 1:B){
+    sample = ceiling(runif(i,0,i))
+    x_star = x[sample]
+    lambda_star[j] = 1/mean(x_star)
+  }
+  z_0 = qnorm(length(lambda_star[lambda_star<=lambda_hat])/B)
+  alpha1 = pnorm(z_0+(z_0+qnorm(0.025))/(1-a*(z_0+qnorm(0.025))))
+  alpha2 = pnorm(z_0+(z_0+qnorm(0.975))/(1-a*(z_0+qnorm(0.975))))
+  lambda_star = sort(lambda_star)
+  BCa[i,] = c(lambda_star[max(ceiling(B*alpha1),1)],lambda_star[max(floor(B*alpha2),1)])
+}
+plot(1:1000,BCa[,2][1:1000],type = "l",main = "Bca confidence Interval",ylab = "lambda",xlab="n(1:1000)")
+lines(1:1000,BCa[,1][1:1000],col="red")
+
+plot(5:1000,BCa[,2][5:1000],type = "l",ylim = c(min(BCa[,1][5:1000]),max(BCa[,2][5:1000])),main = "Bca confidence Interval(n=5:1000)",ylab = "lambda",xlab="n(5:1000)")
+lines(5:1000,BCa[,1][5:1000],col="red")
+plot(5:1000,(BCa[,2]-BCa[,1])[5:1000],type = "l",main = "C.I length(n=5:1000",ylab = "length",xlab = "n")
+```
+
+Here are the plots of BCa C.I. the red(black) line is the L(U) in C.I [L,U].
+
+As we can see when n is below 5, the bootstrap is meaningless since the 97.5% and 2.5% percentile point of the mean of bootstrap sample is almost surely the min and max.
+
+It look similar to the theoretical value (the bootstrap iteration is only 200.)

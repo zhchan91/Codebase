@@ -1,0 +1,163 @@
+---
+title: 'STA Homework 6 4,'
+author: "Chen Zihao 915490404"
+output: pdf_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,fig.height=3)
+```
+
+### 4.
+
+(a)
+
+$$
+\begin{split}
+f(x) &= \lambda e^{-\lambda x}\\
+l(\lambda) &= logL(\lambda|X) = n\log\lambda - {\lambda{\sum x_i}}\\
+l'(\lambda) &= \frac n \lambda -\sum x_i\\
+\hat\lambda_{MLE}&= \frac n{\sum x_i}
+\end{split}
+$$
+
+(b)
+
+$$
+\sqrt{n}(\hat\lambda-\lambda)=\sqrt{n}(\frac1 {\bar X}-\frac 1 \mu)
+$$
+
+using the delta method,
+$$
+\sqrt{n}(f(x)-f(\mu))\rightarrow N(0,f'(x)^2\sigma^2)
+$$
+in distribution,
+
+$(\frac1x)'=-\frac 1 {x^2}$ and $Var(x)=\lambda^{-2}$, we can easily get
+
+$$
+\sqrt{n}(\hat\lambda-\lambda)=\sqrt{n}(\frac1 {\bar X}-\frac 1 \mu)\rightarrow N(0,\lambda^2)
+$$
+in distribution.
+
+the same situation using delta method, $(\log\frac{1}{x})'=-\frac 1 x$
+
+$$
+\sqrt{n}(\log\hat\lambda-\log\lambda)=\sqrt{n}(\log\frac1 {\bar X}-\log\frac 1 \mu)\rightarrow N(0,\lambda^2\times\frac 1 {\lambda^2})=N(0,1)
+$$
+in distribution
+
+(c)
+
+using the results from (b),when n is large
+
+$$
+\begin{split}
+\sqrt{n}(\log\hat\lambda-\log\lambda)&\rightarrow N(0,1)\\
+P(z(\alpha)<\sqrt{n}(\log\hat\lambda-\log\lambda)<z(1-\alpha))&\approx2\alpha\\
+P(-\frac{z(1-\alpha)}{\sqrt{n}}<\log\lambda-\log\hat\lambda<\frac{-z(\alpha)}{\sqrt{n}})&\approx2\alpha\\
+P(\frac{-z(1-\alpha)}{\sqrt{n}}+\log\hat\lambda<\log\lambda<\frac{-z(\alpha)}{\sqrt{n}}+\log\hat\lambda)&\approx2\alpha\\
+P(e^{\frac{-z(1-\alpha)}{\sqrt{n}}}\hat\lambda<\lambda<e^{\frac{-z(\alpha)}{\sqrt{n}}}\hat\lambda)&\approx2\alpha\\
+P(e^{\frac{-z(1-\alpha/2)}{\sqrt{n}}}\hat\lambda<\lambda<e^{\frac{-z(\alpha/2)}{\sqrt{n}}}\hat\lambda)&\approx\alpha\\
+\end{split}
+$$
+then we get the result.
+
+(d)
+
+we have $\lambda(\sum x_i)\sim G(n,1)$, then
+
+$$
+\begin{split}
+\alpha&=P(G^{-1}(\alpha/2)<\lambda\sum x_i<G^{-1}(1-\alpha/2))\\
+&=P(G^{-1}(\alpha/2)<n\frac\lambda{\hat\lambda_n}<G^{-1}(1-\alpha/2))\\
+&=P(\hat\lambda_nG^{-1}(\alpha/2)/n<\lambda<\hat\lambda_nG^{-1}(1-\alpha/2)/n)\\
+\end{split}
+$$
+
+(e)
+
+```{r}
+set.seed(10086)
+n=1000
+y = rep(0,n)
+exact = matrix(0,n,2)
+asymptotic = matrix(0,n,2)
+for (i in 1:n){
+  x = rexp(i,1)
+  y[i] = 1/mean(x)
+  exact[i,]=c(y[i]*qgamma(0.05/2,i,1)/i,y[i]*qgamma(1-0.05/2,i,1)/i)
+  asymptotic[i,]=c(y[i]*exp(-qnorm(1-0.05/2)/sqrt(i)),y[i]*exp(qnorm(1-0.05/2)/sqrt(i)))
+}
+plot(1:n,exact[,1],type = "l",col="red",ylim = c(min(exact),max(c(exact,asymptotic))),ylab = "lambda")
+lines(1:n,exact[,2],col = "red")
+lines(1:n,asymptotic[,1],col = "blue")
+lines(1:n,asymptotic[,2],col = "blue")
+```
+```{r}
+C1 = exact[,2]-exact[,1]
+C2 = asymptotic[,2]-asymptotic[,1]
+plot(1:n,C2,type = "l",col="blue",ylim = c(min(c(C1,C2)),max(c(C1,C2))),ylab = "length",main = "the CI distance")
+lines(1:n,C1,col = "red")
+```
+
+the blue line above is the asymptotic line, the red line is the line using the true distribution.
+
+I can not tell much difference from them. they match with each other after 100 iterations so that i decide to plot the 1 to 100 iteration plot.
+
+```{r}
+plot(1:100,exact[,1][1:100],type = "l",col="red",ylim = c(min(c(exact,asymptotic)),max(c(exact,asymptotic))),ylab = "lambda")
+lines(1:100,exact[,2][1:100],col = "red")
+lines(1:100,asymptotic[,1][1:100],col = "blue")
+lines(1:100,asymptotic[,2][1:100],col = "blue")
+```
+```{r}
+C1 = exact[,2]-exact[,1]
+C2 = asymptotic[,2]-asymptotic[,1]
+plot(1:100,C2[1:100],type = "l",col="blue",ylim = c(min(c(C1,C2)),max(c(C1,C2))),ylab = "length",main = "the CI distance")
+lines(1:100,C1[1:100],col = "red")
+```
+
+as we can see, the blue line from 1 to 10 is above the red line which means the asymptotic one is wider at the beginning and then we are about the same.
+
+the BCa confidence Interval(95%)
+
+```{r}
+#repeat the progress with the same seed.
+set.seed(10086)
+n=1000
+B = 200
+BCa = matrix(0,n,2)
+
+for (i in 1:n){
+  x = rexp(i,1)
+  lambda_hat = 1/mean(x)
+  lambda_star = c()
+  theta_j = c()
+  for (j in 1:i){
+    theta_j[j]=1/mean(x[-j])
+  }
+  a = sum((mean(theta_j)-theta_j)^3)/(6*(sum((mean(theta_j)-theta_j)^2))^(3/2))
+  for (j in 1:B){
+    sample = ceiling(runif(i,0,i))
+    x_star = x[sample]
+    lambda_star[j] = 1/mean(x_star)
+  }
+  z_0 = qnorm(length(lambda_star[lambda_star<=lambda_hat])/B)
+  alpha1 = pnorm(z_0+(z_0+qnorm(0.025))/(1-a*(z_0+qnorm(0.025))))
+  alpha2 = pnorm(z_0+(z_0+qnorm(0.975))/(1-a*(z_0+qnorm(0.975))))
+  lambda_star = sort(lambda_star)
+  BCa[i,] = c(lambda_star[max(ceiling(B*alpha1),1)],lambda_star[max(floor(B*alpha2),1)])
+}
+plot(1:1000,BCa[,2][1:1000],type = "l",ylim = c(min(BCa[,1][5:1000]),max(BCa[,2][5:1000])),main = "Bca confidence Interval",ylab = "lambda",xlab="n(1:1000)")
+lines(1:1000,BCa[,1][1:1000],col="red")
+
+plot(5:1000,BCa[,2][5:1000],type = "l",ylim = c(min(BCa[,1][5:1000]),max(BCa[,2][5:1000])),main = "Bca confidence Interval(n=5:1000)",ylab = "lambda",xlab="n(5:1000)")
+lines(5:1000,BCa[,1][5:1000],col="red")
+plot(5:1000,(BCa[,2]-BCa[,1])[5:1000],type = "l",main = "C.I length(n=5:1000",ylab = "length",xlab = "n")
+```
+
+Here are the plots of BCa C.I. the red(black) line is the L(U) in C.I [L,U].
+
+As we can see when n is below 5, the bootstrap is meaningless since the 97.5% and 2.5% percentile point of the mean of bootstrap sample is almost surely the min and max.
+
+It look similar to the theoretical value (the bootstrap iteration is only 200.)
