@@ -1,0 +1,162 @@
+---
+title: "STA 243 Assignment 4"
+author: 
+output:
+  pdf_document: default
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,fig.height=3)
+```
+
+## 6. Independence-Metropolis-Hastings Algorithm 
+
+```{r,echo = FALSE}
+#set gamma(k,theta)
+#q1 and r1 using Gamma(k,x_{i-1}/k)
+f = function(z){
+  theta1 = 1.5
+  theta2 = 2
+  z^(-3/2)*exp(-theta1*z-theta2/z+2*sqrt(theta1*theta2)+log(sqrt(2*theta2)))
+}
+
+q1 = function(x,y,k){
+  #y is the condition
+  theta = y/k
+  1/(gamma(k)*theta^k)*x^(k-1)*exp(-x/theta)
+}
+
+q2 = function(x,y,theta){
+  #y is the condition
+  k = y/theta
+  1/(gamma(k)*theta^k)*x^(k-1)*exp(-x/theta)
+}
+
+r1 = function (x,y,k){
+  min(1,f(y)*q1(x,y,k)/(f(x)*q1(y,x,k)))
+}
+
+r2 = function (x,y,theta){
+  min(1,f(y)*q2(x,y,theta)/(f(x)*q2(y,x,theta)))
+}
+```
+
+```{r,echo = FALSE}
+fun_scale = function(theta){
+  #using fixed scale
+  x = 1
+  t = 0
+  list = c()
+  
+  #preheat
+  for (i in 1:300){
+    y = rgamma(1,shape = x/theta,scale = theta)
+    u =runif(1,0,1)
+    r = r2(x,y,theta)
+    if (u<=r){
+      x = y
+    }
+  }
+  
+  
+  for (i in 1:50001){
+    if (t > 49) {
+      t = 0
+      list = c(list,x)
+    }
+    
+    y = rgamma(1,shape = x/theta,scale = theta)
+    u =runif(1,0,1)
+    r = r2(x,y,theta)
+    if (u<=r){
+      x = y
+      }
+    t=t+1
+  }
+  par(mfrow=c(1,2))
+  plot(list,type = "l",xlab = "iteration",ylab = "",
+       main = paste("using Gamma(",theta,",x/",theta,")", sep = ""))
+  plot(density(list),main = 
+         paste("using Gamma(",theta,",x/",theta,")", sep = ""))
+  list
+}
+
+```
+
+```{r,echo = FALSE}
+fun_shape = function(k){
+  #using fixed shape
+  x = 1
+  t = 0
+  list = c()
+  
+  for (i in 1:300){
+    y = rgamma(1,shape = k,scale = x/k)
+    u =runif(1,0,1)
+    r = r1(x,y,k)
+    if (u<=r){
+      x = y
+    }
+  }
+  
+  
+  for (i in 1:(50*1000+1)){
+    if (t > 49) {
+      t = 0
+      list = c(list,x)
+    }
+    
+    y = rgamma(1,shape = k,scale = x/k)
+    u =runif(1,0,1)
+    r = r1(x,y,k)
+    if (u<=r){
+      x = y
+      }
+    t=t+1
+  }
+  par(mfrow=c(1,2))
+  plot(list,type = "l",xlab = "iteration",ylab = "",
+       main = paste("using Gamma(",k,",x/",k,")", sep = ""))
+  plot(density(list),main = 
+         paste("using Gamma(",k,",x/",k,")", sep = ""))
+  list
+}
+```
+
+$Gamma(k,\theta)$ has mean $k\theta$
+
+we can draw $y_i$ from $Gamma(k,x_{i-1}/k)$ or $Gamma(x_{i-1}/\theta,\theta)$
+
+generate $y_i$ from $q(y|x_{i-1})$ which is $gamma(k,x_{i-1}/k))$ or $gamma(x_{i-1}/\theta,\theta))$
+
+here is some plot of our output.
+
+```{r,echo = FALSE}
+output = data.frame("sample mean"=0,"1/sample mean"=0)
+output[1,1] =sqrt(2/1.5)
+output[1,2] =sqrt(1.5/2)+1/(2*2)
+rownames(output)[1] = "True value"
+list = fun_shape(2)
+output[2,1] = mean(list)
+output[2,2] = mean(1/list)
+rownames(output)[2] = "Gamma(2,x/2)"
+list = fun_shape(10)
+output[3,1] = mean(list)
+output[3,2] = mean(1/list)
+rownames(output)[3] = "Gamma(10,x/10)"
+list = fun_scale(2)
+output[4,1] = mean(list)
+output[4,2] = mean(1/list)
+rownames(output)[4] = "Gamma(x/2,2)"
+list = fun_scale(10)
+output[5,1] = mean(list)
+output[5,2] = mean(1/list)
+rownames(output)[5] = "Gamma(x/10,10)"
+```
+
+Here is the table showing the mean of the sampele and the mean of 1/sample
+
+```{r,echo=FALSE}
+output
+```
+
+they are similar enough with each other and it seems all of them provide reasonable estimates.

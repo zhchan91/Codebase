@@ -1,0 +1,44 @@
+---
+title: "STA 243 Assignment 4.4"
+author: 
+output:
+  pdf_document: default
+---
+4. ANOVA
+
+(a)
+
+Considering a model $y_{ij}=\mu + \alpha_i+e_{ij}$
+
+$e_{ij}$ have independent and identical double exponential distribution centered on zero with pdf
+
+$$
+f(x)=\frac{1}{2\theta}\exp(-\frac{|x|}{\theta}),-\infty<x<\infty
+$$
+
+where $\theta>0$ and have variance $2\theta^2$
+
+the hypothesis:
+
+- the null hypothesis is $H_0:\forall\alpha_i = 0$ and $\theta>0$.
+- the alternative hypothesis is $H_1:\exists\alpha_i\ne 0$ and $\theta>0$
+
+For this model, suppose we have k groups and for the $i$th group we have $n_i$ observations,totally n observations. According to the model, $e_{ij} = y_{ij}-\frac 1 n\sum_{j=1}^{n_i} y_{ij}=y_{ij}-\mu-\alpha_i$. Under $H_0$ we have $e_{ij} =y_{ij}-\mu$. use the sample variance $S^2$to estimate the variance $2\theta^2$ and we can get $\hat\theta = \sqrt{S^2/2}$
+
+conduct the following test:
+
+1. generate $x_1^*,x_2^*,...,x_n^*$ from $$f(x)=\frac{1}{2\hat\theta}\exp(-\frac{|x|}{\hat\theta}),-\infty<x<\infty$$ and calculate the mean $\bar x^*$
+1. repeat this for 999 times to get 999 $\bar x^*$'s
+1. for $i$th group ($i=1,2,...,k$), calculate $T_i = \frac 1 {n_i}{\sum_{j=1}^{n_i}y_{ij}}-\bar y$ where $\bar y$ is the mean of $\{y_{ij}\}$
+1. if any $T_i$ is amongst the smallest 2.5% or is amongst the largest 2.5% of the $\bar x^*$'s, we reject the $H_0$
+
+(b)
+
+Using the Permutation tests.
+
+1. calculate $\mu$ and $\alpha_i$ for the model.
+1. merge all the $y_{ij}$ to form a sample of n data points.
+1. draw without replacement to form k groups with the number of sample as the same as the original groups. In other words, draw $n_i$ sample for the $i$th group.
+1. calculate $\mu$ and $\alpha_i$ as $\mu^*$ and $\alpha_i^*$.
+1. do the drawing and calculating procedure many times.
+1. if any original $\alpha_i$ is outside of the middle 95% of the $\alpha_i^*$'s, reject $H_0$

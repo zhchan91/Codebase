@@ -1,0 +1,173 @@
+---
+title: "STA 243 Assignment 4.5"
+author: 
+output:
+  pdf_document: default
+---
+## 5. Gibbs Sampling
+
+(a) Generate a random sample of size n = 100 for the ZIP model using parameters $p=0.3$ and $\lambda = 2$.
+
+According to the question, $X_i=R_iY_i$ where $Y_i's$ have a Poisson($\lambda$) distribution and the $R_i's$ have a Bernoulli(p) distribution, all independent of each other.
+
+first generate 100 $R_i\sim Bernoulli(p)$ and 100 $Y_i\sim Poisson(\lambda)$ and let $X_i = R_iY_i$
+```{r,echo = FALSE}
+r = rbinom(100,1,0.3)
+y = rpois(100,2)
+x = r*y
+```
+
+(b)
+
+i. $(\lambda|p,r,x)$ treating $p,r,x$ as fixed in $f(p,\lambda,r,x)$
+$$
+\begin{split}
+f(\lambda|p,r,x) &\propto \lambda^{a-1}e^{-b\lambda}\prod_{i=1}^n e^{-\lambda r_i}\lambda^{x_i}\\
+&\propto \lambda^{a+\sum_ix_i-1}e^{-(b+\sum_ir_i)\lambda}
+\end{split}
+$$
+
+which is the the pdf of Gamma($a+\sum_ix_i,b+\sum_ir_i$) with shape and rate parameters.
+
+ii. $(p|\lambda,r,x)$ treating $\lambda,r,x$ as fixed in $f(p,\lambda,r,x)$
+$$
+\begin{split}
+f(p|\lambda,r,x)&\propto \prod_{i=1}^n p^{r_i}(1-p)^{1-r_i}\\
+&\propto p^{(\sum_ir_i+1)-1}(1-p)^{(n-\sum_i r_i+1)-1}\\
+\end{split}
+$$
+which is the the pdf of Beta($\sum_ir_i+1,n-\sum_i r_i+1$).
+
+iii. 
+
+$(r_i|\lambda,p)\sim Bernoulli(p)$ and $(x_i|r,\lambda,p)\sim Poisson(\lambda r_i)$ and etc. 
+
+$r_i$'s are independent.$x_i$'s are independent.
+$$
+\begin{split}
+f(r_i|\lambda,p,x)&=\frac{f(r_i,x|\lambda,p)}{f(x_i|\lambda,p)}\\
+& = \frac{f(r_i,x,\lambda|p)}{f(x_i|\lambda,p)f(\lambda|p)}\\
+& = \frac{f(r_i,x,\lambda,p)}{f(x_i|\lambda,p)f(\lambda|p)f(p)}\\
+& = \frac{e^{-\lambda r_i}(\lambda r_i)^{x_i}p^{r_i}(1-p)^{1-r_i}}{x_i!(f(x|\lambda,p)}\\
+& = \frac{e^{-\lambda r_i}(\lambda r_i)^{x_i}p^{r_i}(1-p)^{1-r_i}}{x_i!(f(x|r_i=1,\lambda,p)p+f(x|r_i=0,\lambda,p))(1-p)}\\
+\end{split}
+$$
+so that
+
+$$
+\begin{split}
+P(r_i=1|\lambda,p,x)&=\frac {e^{-\lambda}\lambda^{x_i}p}{x_i!(\frac{(\lambda r_i)^{x_i}e^{-\lambda r_i}}{x_i!}|_{r_i=0}(1-p)+\frac{(\lambda r_i)^{x_i}e^{-\lambda r_i}}{x_i!}|_{r_i=1}p)}\\
+&=\frac {e^{-\lambda}p}{{(r_i)^{x_i}e^{-\lambda r_i}}|_{r_i=0}(1-p)+{( r_i)^{x_i}e^{-\lambda r_i}}|_{r_i=1}p)}\\
+&= \frac {e^{-\lambda}p}{I_{\{x_i=0\}}(1-p)+e^{-\lambda}p}
+\end{split}
+$$
+so that $(r_i|\lambda,p,x)\sim Bernoulli(\frac {e^{-\lambda}p}{I_{\{x_i=0\}}(1-p)+e^{-\lambda}p})$
+
+
+(c).
+
+```{r,echo = FALSE}
+gen = function(a,b){
+  r = rep(length(x),0)
+  p = 0.5
+  lambda = 1
+  #preheat
+  for (i in 1:100){
+    lambda = rgamma(1,shape = a + sum(x), rate = b +sum(r))
+    p = rbeta(1,1+sum(r),length(x)+1-sum(r))
+    for (j in 1:100){
+      r[j] = rbinom(1,1,p*exp(-lambda)/(p*exp(-lambda)+(1-p)*(x[j]==0)))
+    }  
+  }
+  
+  t=0
+  
+  lambdalist = c()
+  rlist = rep(length(x),0)
+  plist = c()    
+  for (i in 1:(50*1000+1)){
+    if (t>49){
+      plist = c(plist,p)
+      lambdalist = c(lambdalist,lambda)
+      rlist = rbind(rlist,r)
+      t=0
+    }
+
+    lambda = rgamma(1,shape = a + sum(x), rate = b +sum(r))
+    p = rbeta(1,1+sum(r),length(x)+1-sum(r))
+    for (j in 1:100){
+      r[j] = rbinom(1,1,p*exp(-lambda)/(p*exp(-lambda)+(1-p)*(x[j]==0)))
+    }
+    t=t+1
+  }
+  list(plist = plist,lambdalist = lambdalist,r = sum(colMeans(rlist)))
+}
+
+```
+
+
+```{r,echo = FALSE}
+set.seed(2018)
+
+n = length(x)
+result = gen(1,1)
+plist = result$plist
+lambdalist = result$lambdalist
+rsum = result$r
+par(mfrow=c(2,2))
+plot(lambdalist,xlab = "iteration",ylab = "lambda",type = "l")
+hist(lambdalist,xlab = "lambda",main = "Histogram of sample of lambda")
+plot(plist,xlab = "iteration",ylab = "p",type = "l")
+hist(plist,xlab = "p",main = "Histogram of sample of p")
+
+lam_ci = data.frame(lower = 0,upper = 0)
+p_ci = data.frame(lower = 0,upper = 0)
+
+lam_ci[1,1] = qgamma(0.025,shape = 1 + sum(x), rate = 1 +result$r)
+lam_ci[1,2] = qgamma(0.975,shape = 1 + sum(x), rate = 1 +result$r)
+
+p_ci[1,1] = qbeta(0.025,1+result$r,n+1-result$r)
+p_ci[1,2] = qbeta(0.975,1+result$r,n+1-result$r)
+row.names(lam_ci)[1] = "a=1,b=1"
+row.names(p_ci)[1] = "a=1,b=1"
+
+result = gen(2,1)
+lam_ci[2,1] = qgamma(0.025,shape = 2 + sum(x), rate = 1 +result$r)
+lam_ci[2,2] = qgamma(0.975,shape = 2 + sum(x), rate = 1 +result$r)
+p_ci[2,1] = qbeta(0.025,1+result$r,n+1-result$r)
+p_ci[2,2] = qbeta(0.975,1+result$r,n+1-result$r)
+row.names(lam_ci)[2] = "a=2,b=1"
+row.names(p_ci)[2] = "a=2,b=1"
+
+result = gen(1,2)
+lam_ci[3,1] = qgamma(0.025,shape = 1 + sum(x), rate = 2 +result$r)
+lam_ci[3,2] = qgamma(0.975,shape = 1 + sum(x), rate = 2 +result$r)
+p_ci[3,1] = qbeta(0.025,1+result$r,n+1-result$r)
+p_ci[3,2] = qbeta(0.975,1+result$r,n+1-result$r)
+row.names(lam_ci)[3] = "a=1,b=2"
+row.names(p_ci)[3] = "a=1,b=2"
+
+result = gen(2,2)
+lam_ci[4,1] = qgamma(0.025,shape = 2 + sum(x), rate = 2 +result$r)
+lam_ci[4,2] = qgamma(0.975,shape = 2 + sum(x), rate = 2 +result$r)
+p_ci[4,1] = qbeta(0.025,1+result$r,n+1-result$r)
+p_ci[4,2] = qbeta(0.975,1+result$r,n+1-result$r)
+row.names(lam_ci)[4] = "a=2,b=2"
+row.names(p_ci)[4] = "a=2,b=2"
+```
+
+bayesian confidence intervals,
+
+for p
+
+```{r,echo=FALSE}
+p_ci
+```
+
+for $\lambda$
+
+```{r,echo=FALSE}
+lam_ci
+```
+
+We can see that the true value for $p =0.3$ and $\lambda = 2$ are included in the confidence intervals.

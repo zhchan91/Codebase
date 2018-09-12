@@ -1,0 +1,47 @@
+---
+title: "STA 243 Assignment 4.2"
+author: 
+output:
+  pdf_document: default
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,fig.height=3)
+```
+
+## 2. Monte Carlo Importance Sampling
+
+let f(x) be unif(1,2) and use the $N(1.5,\nu^2)$ as g. 
+
+$$
+\begin{split}
+I &= \int_1^2 \frac 1 {\sqrt{2\pi}}e^{-x^2/2}dx\\
+&= \int_1^2 \frac{\nu e^{-x^2/2}}{e^{-(x-1.5)^2/2\nu^2}}\frac 1 {\sqrt{2\pi\nu^2}}e^{-(x-1.5)^2/2\nu^2}dx\\
+\end{split}
+$$
+
+so that we have our $h(x)\frac {f(x)}{g(x)}$ and the $g(x)$
+
+first generate $x_1,x_2,...,x_m$ iid from $g(x)$
+
+```{r}
+fun1 = function(x,v) {
+  if (x>1 & x<2){
+    v * exp(-x^2/2+(x-1.5)^2/(2*v^2))
+  }
+  else{0}
+}
+
+for (v in c(0.1,1,10)){
+  x = rnorm(10000,1.5,v)
+  hw = rep(0,10000)
+  for (i in 1:10000){
+    hw[i] = fun1(x[i],v)
+  }
+  par(mfrow=c(1,2))
+  hist(hw,main = paste("nu =",v))
+  hist(hw[hw>0],main = paste("nu =",v,"without 0"))
+  print(paste("the estimating integral value is",mean(hw)))
+}
+```
+
+Here we can see that there are outliers for case $\nu = 0.1$ and $\nu = 10$. for $\nu=0.1$ the dispersion of x is too narrow and for $\nu = 10$, the dispersion is too wide. Both histogram plots on the left shows that about 10000 values ,almost all, are around 0. The hist plot on the right tells much more details. For $\nu = 10$, only a few values lies in [1,2], which need more in sample size to get more non-zero values. For $\nu =0.1$, most of the x value focus on 1.5 leads that majority of the h(x)w(x) values is close to a single point, in this case, 0. $\nu = 1$ is the best among the three.

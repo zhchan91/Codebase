@@ -1,0 +1,88 @@
+---
+title: "STA 243 Assignment 4.3"
+author: 
+output:
+  pdf_document: default
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,fig.height=3)
+```
+
+## 3.  Control Variate Method
+
+(a) folowing the instruction and here is the result.
+```{r}
+##3.(a)
+U=runif(1500,0,1)
+U_sum=0
+for (i in 1:(length(U))) {
+  U_sum=U_sum+1/(1+U[i])
+}
+I_MC=(1/1500)*(U_sum)
+print(paste("the estimating integral value is",I_MC))
+```
+The exact value for I is $\ln 2 \approx 0.6931472$
+
+```{r}
+#variance
+I_err=0
+for (i in 1:(length(U))) {
+  I_err=I_err+(1/(1+U[i])-I_MC)^2
+}
+I_var=1/(length(U)*(length(U)-1))*I_err
+
+print(paste("the sample standard error of the estimating integral value is",sqrt(I_var)))
+```
+(b) and (c)
+
+$E(1+U) = 1 + E(U) = 1+0.5 =1.5$.
+
+$Var[c(U)] = Var(1+U) = \frac 1 {12}$ and $Cov[h(U),c(U)]=1-\frac {3\ln 2}{2}$
+
+then we can get the best value for b, $b^*=\frac {Cov[h(U),c(U)]}{Var[c(U)]}\approx -0.4767$
+```{r}
+##(b)&(C)
+C_sum=0
+for (i in 1:(length(U))) {
+  C_sum=C_sum+(1+U[i])
+}
+C=(1/1500)*(C_sum)
+b = cov(1/(1+U), 1+U)/var(1+U)
+I_CV=I_MC-b*(C-1.5)
+print(paste("the estimating integral value is",I_CV))
+#variance
+I_err=0
+for (i in 1:(length(U))) {
+  I_err=I_err+(1/(1+U[i])-b*((1+U[i])-1.5)-I_CV)^2
+}
+I_var=1/(length(U)*(length(U)-1))*I_err
+print(paste("the sample standard error of the estimating integral value is",sqrt(I_var)))
+
+```
+
+The variance of the CV version is less which implies the CV version is better.
+
+(d)
+Here we use $d(x)\sqrt x$ instead of $c(x) = 1+x$.
+
+```{r}
+##(d)
+C_sum=0
+for (i in 1:(length(U))) {
+  C_sum=C_sum+(sqrt(U[i]))
+}
+C=(1/1500)*(C_sum)
+b = cov(1/(1+U), sqrt(U))/var(sqrt(U))
+I_CV=I_MC-b*(C-2/3)
+print(paste("the estimating integral value is",I_CV))
+
+#variance
+I_err=0
+for (i in 1:(length(U))) {
+  I_err=I_err+(1/(1+U[i])-b*(sqrt(U[i])-2/3)-I_CV)^2
+}
+I_var=1/(length(U)*(length(U)-1))*I_err
+print(paste("the sample standard error of the estimating integral value is",sqrt(I_var)))
+```
+
+the sample stanard error is even smaller than the previous one.

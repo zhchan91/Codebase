@@ -1,0 +1,57 @@
+---
+title: "STA 243 Assignment 4"
+author: 
+output:
+  pdf_document: default
+---
+
+2.
+$$
+
+$$
+
+$$
+\begin{split}
+I &= \int_1^2 \frac 1 {\sqrt{2\pi}}e^{-x^2/2}dx\\
+&= \int_1^2 \frac{\nu e^{-x^2/2}}{e^{-(x-1.5)^2/2\nu^2}}\frac 1 {\sqrt{2\pi\nu^2}}e^{-(x-1.5)^2/2\nu^2}dx\\
+&= \int_1^2 \frac{\nu e^{-x^2/2}}{e^{-(x-1.5)^2/2\nu^2}}(\Phi(\frac {2-1.5}{\nu})-\Phi(\frac {1-1.5}{\nu}))\frac {\frac 1 {\sqrt{2\pi\nu^2}}e^{-(x-1.5)^2/2\nu^2}}{\Phi(\frac {2-1.5}{\nu})-\Phi(\frac {1-1.5}{\nu})}dx\\
+\end{split}
+$$
+so that 
+
+$$
+h(x)=1\\
+w(x)=\frac{\nu e^{-x^2/2}}{e^{-(x-1.5)^2/2\nu^2}}(\Phi(\frac {2-1.5}{\nu})-\Phi(\frac {1-1.5}{\nu}))
+$$
+and 
+
+$$
+g(x)=\frac 1 {\sqrt{2\pi\nu^2}}e^{-(x-1.5)^2/2\nu^2}
+$$
+which is the pdf of N(1.5,$\nu^2$)
+
+first generate $x_1,x_2,...,x_m$ iid from $g(x)$
+
+
+then calculate I by $\hat I = \frac 1 m \sum_{i=1}^m 1*w(x_i^*)$ 
+
+```{r}
+for (v in c(0.1,1,10)){
+  x = rnorm(10000,1.5,v)
+  x = x[x<2&x>1]
+  
+  h = v * exp(-x^2/2+(x-1.5)^2/(2*v^2))*(pnorm(0.5/v)-pnorm(-0.5/v))
+  plot(x,h)
+  print(mean(h))
+}
+```
+
+```{r}
+x = seq(1,2,0.001)
+y = 1/sqrt(2*pi)*exp(-x^2/2)
+mean(y)
+```
+
+
+
+

@@ -1,0 +1,53 @@
+---
+title: "STA 243 Assignment 4.1"
+author: 
+output:
+  pdf_document: default
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## 1. Monte Carlo integration
+
+In this part, it is just some basic coding. For example, (a), using runif(n,a,b) function to generate sample $x\in[a,b]$ and evaluate each of the integrals. Details are in the coding file, here is just the results for each question.
+
+(a)
+
+```{r}
+set.seed(12341)
+##1.(a)
+u = runif(100000)
+u_hat = mean(u^2)
+print(paste("the integral for (a) is",u_hat))
+```
+
+
+
+(b)
+```{r}
+##(b)
+u_x=runif(10000,min = -2,max = 2)
+u_y=runif(10000,min = 0,max = 1)
+u_sum=0
+for (i in 1:(length(u_x))) {
+  u_sum=u_sum+4*u_x[i]^2*cos(u_x[i]*u_y[i])
+}
+u_hat=1/10000*(u_sum)
+print(paste("the integral for (b) is",u_hat))
+```
+
+(c)
+```{r}
+
+##(c)
+U=runif(10000,min = 0,max = 1)
+X=-log(1-U)
+u_sum=0
+for (i in 1:(length(X))) {
+  u_sum=u_sum+3/4*X[i]^4*exp(-X[i]^3/4+X[i])
+}
+u_hat=1/10000*(u_sum)
+print(paste("the integral for (c) is",u_hat))
+```
+

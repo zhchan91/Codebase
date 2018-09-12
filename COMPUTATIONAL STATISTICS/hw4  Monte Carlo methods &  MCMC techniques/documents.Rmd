@@ -1,0 +1,529 @@
+---
+title: "STA 243 Assignment 4"
+author: Chen Zihao(50%) Junyi Song(50%)
+output:
+  pdf_document: default
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,fig.height=3)
+```
+
+## 1. Monte Carlo integration
+
+In this part, it is just some basic coding. For example, (a), using runif(n,a,b) function to generate sample $x\in[a,b]$ and evaluate each of the integrals. Details are in the coding file, here is just the results for each question.
+
+(a)
+
+```{r}
+set.seed(12341)
+##1.(a)
+u = runif(100000)
+u_hat = mean(u^2)
+print(paste("the integral for (a) is",u_hat))
+```
+
+
+
+(b)
+```{r}
+##(b)
+u_x=runif(10000,min = -2,max = 2)
+u_y=runif(10000,min = 0,max = 1)
+u_sum=0
+for (i in 1:(length(u_x))) {
+  u_sum=u_sum+4*u_x[i]^2*cos(u_x[i]*u_y[i])
+}
+u_hat=1/10000*(u_sum)
+print(paste("the integral for (b) is",u_hat))
+```
+
+(c)
+```{r}
+
+##(c)
+U=runif(10000,min = 0,max = 1)
+X=-log(1-U)
+u_sum=0
+for (i in 1:(length(X))) {
+  u_sum=u_sum+3/4*X[i]^4*exp(-X[i]^3/4+X[i])
+}
+u_hat=1/10000*(u_sum)
+print(paste("the integral for (c) is",u_hat))
+```
+
+## 2. Monte Carlo Importance Sampling
+
+let f(x) be unif(1,2) and use the $N(1.5,\nu^2)$ as g. 
+
+$$
+\begin{split}
+I &= \int_1^2 \frac 1 {\sqrt{2\pi}}e^{-x^2/2}dx\\
+&= \int_1^2 \frac{\nu e^{-x^2/2}}{e^{-(x-1.5)^2/2\nu^2}}\frac 1 {\sqrt{2\pi\nu^2}}e^{-(x-1.5)^2/2\nu^2}dx\\
+\end{split}
+$$
+
+so that we have our $h(x)\frac {f(x)}{g(x)}$ and the $g(x)$
+
+first generate $x_1,x_2,...,x_m$ iid from $g(x)$
+
+```{r}
+fun1 = function(x,v) {
+  if (x>1 & x<2){
+    v * exp(-x^2/2+(x-1.5)^2/(2*v^2))
+  }
+  else{0}
+}
+
+for (v in c(0.1,1,10)){
+  x = rnorm(10000,1.5,v)
+  hw = rep(0,10000)
+  for (i in 1:10000){
+    hw[i] = fun1(x[i],v)
+  }
+  par(mfrow=c(1,2))
+  hist(hw,main = paste("nu =",v))
+  hist(hw[hw>0],main = paste("nu =",v,"without 0"))
+  print(paste("the estimating integral value is",mean(hw)))
+}
+```
+
+Here we can see that there are outliers for case $\nu = 0.1$ and $\nu = 10$. for $\nu=0.1$ the dispersion of x is too narrow and for $\nu = 10$, the dispersion is too wide. Both histogram plots on the left shows that about 10000 values ,almost all, are around 0. The hist plot on the right tells much more details. For $\nu = 10$, only a few values lies in [1,2], which need more in sample size to get more non-zero values. For $\nu =0.1$, most of the x value focus on 1.5 leads that majority of the h(x)w(x) values is close to a single point, in this case, 0. $\nu = 1$ is the best among the three.
+
+## 3.  Control Variate Method
+
+(a) folowing the instruction and here is the result.
+```{r}
+##3.(a)
+U=runif(1500,0,1)
+U_sum=0
+for (i in 1:(length(U))) {
+  U_sum=U_sum+1/(1+U[i])
+}
+I_MC=(1/1500)*(U_sum)
+print(paste("the estimating integral value is",I_MC))
+```
+The exact value for I is $\ln 2 \approx 0.6931472$
+
+```{r}
+#variance
+I_err=0
+for (i in 1:(length(U))) {
+  I_err=I_err+(1/(1+U[i])-I_MC)^2
+}
+I_var=1/(length(U)*(length(U)-1))*I_err
+
+print(paste("the sample standard error of the estimating integral value is",sqrt(I_var)))
+```
+(b) and (c)
+
+$E(1+U) = 1 + E(U) = 1+0.5 =1.5$.
+
+$Var[c(U)] = Var(1+U) = \frac 1 {12}$ and $Cov[h(U),c(U)]=1-\frac {3\ln 2}{2}$
+
+then we can get the best value for b, $b^*=\frac {Cov[h(U),c(U)]}{Var[c(U)]}\approx -0.4767$
+```{r}
+##(b)&(C)
+C_sum=0
+for (i in 1:(length(U))) {
+  C_sum=C_sum+(1+U[i])
+}
+C=(1/1500)*(C_sum)
+b = cov(1/(1+U), 1+U)/var(1+U)
+I_CV=I_MC-b*(C-1.5)
+print(paste("the estimating integral value is",I_CV))
+#variance
+I_err=0
+for (i in 1:(length(U))) {
+  I_err=I_err+(1/(1+U[i])-b*((1+U[i])-1.5)-I_CV)^2
+}
+I_var=1/(length(U)*(length(U)-1))*I_err
+print(paste("the sample standard error of the estimating integral value is",sqrt(I_var)))
+
+```
+
+The variance of the CV version is less which implies the CV version is better.
+
+(d)
+Here we use $d(x)\sqrt x$ instead of $c(x) = 1+x$.
+
+```{r}
+##(d)
+C_sum=0
+for (i in 1:(length(U))) {
+  C_sum=C_sum+(sqrt(U[i]))
+}
+C=(1/1500)*(C_sum)
+b = cov(1/(1+U), sqrt(U))/var(sqrt(U))
+I_CV=I_MC-b*(C-2/3)
+print(paste("the estimating integral value is",I_CV))
+
+#variance
+I_err=0
+for (i in 1:(length(U))) {
+  I_err=I_err+(1/(1+U[i])-b*(sqrt(U[i])-2/3)-I_CV)^2
+}
+I_var=1/(length(U)*(length(U)-1))*I_err
+print(paste("the sample standard error of the estimating integral value is",sqrt(I_var)))
+```
+
+the sample stanard error is even smaller than the previous one.
+
+## 4. ANOVA
+
+(a)
+
+Considering a model $y_{ij}=\mu + \alpha_i+e_{ij}$
+
+$e_{ij}$ have independent and identical double exponential distribution centered on zero with pdf
+
+$$
+f(x)=\frac{1}{2\theta}\exp(-\frac{|x|}{\theta}),-\infty<x<\infty
+$$
+
+where $\theta>0$ and have variance $2\theta^2$
+
+the hypothesis:
+
+- the null hypothesis is $H_0:\forall\alpha_i = 0$ and $\theta>0$.
+- the alternative hypothesis is $H_1:\exists\alpha_i\ne 0$ and $\theta>0$
+
+For this model, suppose we have k groups and for the $i$th group we have $n_i$ observations,totally n observations. According to the model, $e_{ij} = y_{ij}-\frac 1 n\sum_{j=1}^{n_i} y_{ij}=y_{ij}-\mu-\alpha_i$. Under $H_0$ we have $e_{ij} =y_{ij}-\mu$. use the sample variance $S^2$to estimate the variance $2\theta^2$ and we can get $\hat\theta = \sqrt{S^2/2}$
+
+conduct the following test:
+
+1. generate $x_1^*,x_2^*,...,x_n^*$ from $$f(x)=\frac{1}{2\hat\theta}\exp(-\frac{|x|}{\hat\theta}),-\infty<x<\infty$$ and calculate the mean $\bar x^*$
+1. repeat this for 999 times to get 999 $\bar x^*$'s
+1. for $i$th group ($i=1,2,...,k$), calculate $T_i = \frac 1 {n_i}{\sum_{j=1}^{n_i}y_{ij}}-\bar y$ where $\bar y$ is the mean of $\{y_{ij}\}$
+1. if any $T_i$ is amongst the smallest 2.5% or is amongst the largest 2.5% of the $\bar x^*$'s, we reject the $H_0$
+
+(b)
+
+Using the Permutation tests.
+
+1. calculate $\mu$ and $\alpha_i$ for the model.
+1. merge all the $y_{ij}$ to form a sample of n data points.
+1. draw without replacement to form k groups with the number of sample as the same as the original groups. In other words, draw $n_i$ sample for the $i$th group.
+1. calculate $\mu$ and $\alpha_i$ as $\mu^*$ and $\alpha_i^*$.
+1. do the drawing and calculating procedure many times.
+1. if any original $\alpha_i$ is outside of the middle 95% of the $\alpha_i^*$'s, reject $H_0$
+
+## 5. Gibbs Sampling
+
+(a) Generate a random sample of size n = 100 for the ZIP model using parameters $p=0.3$ and $\lambda = 2$.
+
+According to the question, $X_i=R_iY_i$ where $Y_i's$ have a Poisson($\lambda$) distribution and the $R_i's$ have a Bernoulli(p) distribution, all independent of each other.
+
+first generate 100 $R_i\sim Bernoulli(p)$ and 100 $Y_i\sim Poisson(\lambda)$ and let $X_i = R_iY_i$
+```{r,echo = FALSE}
+r = rbinom(100,1,0.3)
+y = rpois(100,2)
+x = r*y
+```
+
+(b)
+
+i. $(\lambda|p,r,x)$ treating $p,r,x$ as fixed in $f(p,\lambda,r,x)$
+$$
+\begin{split}
+f(\lambda|p,r,x) &\propto \lambda^{a-1}e^{-b\lambda}\prod_{i=1}^n e^{-\lambda r_i}\lambda^{x_i}\\
+&\propto \lambda^{a+\sum_ix_i-1}e^{-(b+\sum_ir_i)\lambda}
+\end{split}
+$$
+
+which is the the pdf of Gamma($a+\sum_ix_i,b+\sum_ir_i$) with shape and rate parameters.
+
+ii. $(p|\lambda,r,x)$ treating $\lambda,r,x$ as fixed in $f(p,\lambda,r,x)$
+$$
+\begin{split}
+f(p|\lambda,r,x)&\propto \prod_{i=1}^n p^{r_i}(1-p)^{1-r_i}\\
+&\propto p^{(\sum_ir_i+1)-1}(1-p)^{(n-\sum_i r_i+1)-1}\\
+\end{split}
+$$
+which is the the pdf of Beta($\sum_ir_i+1,n-\sum_i r_i+1$).
+
+iii. 
+
+$(r_i|\lambda,p)\sim Bernoulli(p)$ and $(x_i|r,\lambda,p)\sim Poisson(\lambda r_i)$ and etc. 
+
+$r_i$'s are independent.$x_i$'s are independent.
+$$
+\begin{split}
+f(r_i|\lambda,p,x)&=\frac{f(r_i,x|\lambda,p)}{f(x_i|\lambda,p)}\\
+& = \frac{f(r_i,x,\lambda|p)}{f(x_i|\lambda,p)f(\lambda|p)}\\
+& = \frac{f(r_i,x,\lambda,p)}{f(x_i|\lambda,p)f(\lambda|p)f(p)}\\
+& = \frac{e^{-\lambda r_i}(\lambda r_i)^{x_i}p^{r_i}(1-p)^{1-r_i}}{x_i!(f(x|\lambda,p)}\\
+& = \frac{e^{-\lambda r_i}(\lambda r_i)^{x_i}p^{r_i}(1-p)^{1-r_i}}{x_i!(f(x|r_i=1,\lambda,p)p+f(x|r_i=0,\lambda,p))(1-p)}\\
+\end{split}
+$$
+so that
+
+$$
+\begin{split}
+P(r_i=1|\lambda,p,x)&=\frac {e^{-\lambda}\lambda^{x_i}p}{x_i!(\frac{(\lambda r_i)^{x_i}e^{-\lambda r_i}}{x_i!}|_{r_i=0}(1-p)+\frac{(\lambda r_i)^{x_i}e^{-\lambda r_i}}{x_i!}|_{r_i=1}p)}\\
+&=\frac {e^{-\lambda}p}{{(r_i)^{x_i}e^{-\lambda r_i}}|_{r_i=0}(1-p)+{( r_i)^{x_i}e^{-\lambda r_i}}|_{r_i=1}p)}\\
+&= \frac {e^{-\lambda}p}{I_{\{x_i=0\}}(1-p)+e^{-\lambda}p}
+\end{split}
+$$
+so that $(r_i|\lambda,p,x)\sim Bernoulli(\frac {e^{-\lambda}p}{I_{\{x_i=0\}}(1-p)+e^{-\lambda}p})$
+
+
+(c).
+
+```{r,echo = FALSE}
+gen = function(a,b){
+  r = rep(length(x),0)
+  p = 0.5
+  lambda = 1
+  #preheat
+  for (i in 1:100){
+    lambda = rgamma(1,shape = a + sum(x), rate = b +sum(r))
+    p = rbeta(1,1+sum(r),length(x)+1-sum(r))
+    for (j in 1:100){
+      r[j] = rbinom(1,1,p*exp(-lambda)/(p*exp(-lambda)+(1-p)*(x[j]==0)))
+    }  
+  }
+  
+  t=0
+  
+  lambdalist = c()
+  rlist = rep(length(x),0)
+  plist = c()    
+  for (i in 1:(50*1000+1)){
+    if (t>49){
+      plist = c(plist,p)
+      lambdalist = c(lambdalist,lambda)
+      rlist = rbind(rlist,r)
+      t=0
+    }
+
+    lambda = rgamma(1,shape = a + sum(x), rate = b +sum(r))
+    p = rbeta(1,1+sum(r),length(x)+1-sum(r))
+    for (j in 1:100){
+      r[j] = rbinom(1,1,p*exp(-lambda)/(p*exp(-lambda)+(1-p)*(x[j]==0)))
+    }
+    t=t+1
+  }
+  list(plist = plist,lambdalist = lambdalist,r = sum(colMeans(rlist)))
+}
+
+```
+
+
+```{r,echo = FALSE,fig.height=5}
+set.seed(2018)
+
+n = length(x)
+result = gen(1,1)
+plist = result$plist
+lambdalist = result$lambdalist
+rsum = result$r
+par(mfrow=c(2,2))
+plot(lambdalist,xlab = "iteration",ylab = "lambda",type = "l")
+hist(lambdalist,xlab = "lambda",main = "Histogram of sample of lambda")
+plot(plist,xlab = "iteration",ylab = "p",type = "l")
+hist(plist,xlab = "p",main = "Histogram of sample of p")
+
+lam_ci = data.frame(lower = 0,upper = 0)
+p_ci = data.frame(lower = 0,upper = 0)
+
+lam_ci[1,1] = qgamma(0.025,shape = 1 + sum(x), rate = 1 +result$r)
+lam_ci[1,2] = qgamma(0.975,shape = 1 + sum(x), rate = 1 +result$r)
+
+p_ci[1,1] = qbeta(0.025,1+result$r,n+1-result$r)
+p_ci[1,2] = qbeta(0.975,1+result$r,n+1-result$r)
+row.names(lam_ci)[1] = "a=1,b=1"
+row.names(p_ci)[1] = "a=1,b=1"
+
+result = gen(2,1)
+lam_ci[2,1] = qgamma(0.025,shape = 2 + sum(x), rate = 1 +result$r)
+lam_ci[2,2] = qgamma(0.975,shape = 2 + sum(x), rate = 1 +result$r)
+p_ci[2,1] = qbeta(0.025,1+result$r,n+1-result$r)
+p_ci[2,2] = qbeta(0.975,1+result$r,n+1-result$r)
+row.names(lam_ci)[2] = "a=2,b=1"
+row.names(p_ci)[2] = "a=2,b=1"
+
+result = gen(1,2)
+lam_ci[3,1] = qgamma(0.025,shape = 1 + sum(x), rate = 2 +result$r)
+lam_ci[3,2] = qgamma(0.975,shape = 1 + sum(x), rate = 2 +result$r)
+p_ci[3,1] = qbeta(0.025,1+result$r,n+1-result$r)
+p_ci[3,2] = qbeta(0.975,1+result$r,n+1-result$r)
+row.names(lam_ci)[3] = "a=1,b=2"
+row.names(p_ci)[3] = "a=1,b=2"
+
+result = gen(2,2)
+lam_ci[4,1] = qgamma(0.025,shape = 2 + sum(x), rate = 2 +result$r)
+lam_ci[4,2] = qgamma(0.975,shape = 2 + sum(x), rate = 2 +result$r)
+p_ci[4,1] = qbeta(0.025,1+result$r,n+1-result$r)
+p_ci[4,2] = qbeta(0.975,1+result$r,n+1-result$r)
+row.names(lam_ci)[4] = "a=2,b=2"
+row.names(p_ci)[4] = "a=2,b=2"
+```
+
+bayesian confidence intervals,
+
+for p
+
+```{r,echo=FALSE}
+p_ci
+```
+
+for $\lambda$
+
+```{r,echo=FALSE}
+lam_ci
+```
+
+We can see that the true value for $p =0.3$ and $\lambda = 2$ are included in the confidence intervals.
+
+## 6. Independence-Metropolis-Hastings Algorithm 
+
+```{r,echo = FALSE}
+#set gamma(k,theta)
+#q1 and r1 using Gamma(k,x_{i-1}/k)
+f = function(z){
+  theta1 = 1.5
+  theta2 = 2
+  z^(-3/2)*exp(-theta1*z-theta2/z+2*sqrt(theta1*theta2)+log(sqrt(2*theta2)))
+}
+
+q1 = function(x,y,k){
+  #y is the condition
+  theta = y/k
+  1/(gamma(k)*theta^k)*x^(k-1)*exp(-x/theta)
+}
+
+q2 = function(x,y,theta){
+  #y is the condition
+  k = y/theta
+  1/(gamma(k)*theta^k)*x^(k-1)*exp(-x/theta)
+}
+
+r1 = function (x,y,k){
+  min(1,f(y)*q1(x,y,k)/(f(x)*q1(y,x,k)))
+}
+
+r2 = function (x,y,theta){
+  min(1,f(y)*q2(x,y,theta)/(f(x)*q2(y,x,theta)))
+}
+```
+
+```{r,echo = FALSE}
+fun_scale = function(theta){
+  #using fixed scale
+  x = 1
+  t = 0
+  list = c()
+  
+  #preheat
+  for (i in 1:300){
+    y = rgamma(1,shape = x/theta,scale = theta)
+    u =runif(1,0,1)
+    r = r2(x,y,theta)
+    if (u<=r){
+      x = y
+    }
+  }
+  
+  
+  for (i in 1:50001){
+    if (t > 49) {
+      t = 0
+      list = c(list,x)
+    }
+    
+    y = rgamma(1,shape = x/theta,scale = theta)
+    u =runif(1,0,1)
+    r = r2(x,y,theta)
+    if (u<=r){
+      x = y
+      }
+    t=t+1
+  }
+  par(mfrow=c(1,2))
+  plot(list,type = "l",xlab = "iteration",ylab = "",
+       main = paste("using Gamma(",theta,",x/",theta,")", sep = ""))
+  plot(density(list),main = 
+         paste("using Gamma(",theta,",x/",theta,")", sep = ""))
+  list
+}
+
+```
+
+```{r,echo = FALSE}
+fun_shape = function(k){
+  #using fixed shape
+  x = 1
+  t = 0
+  list = c()
+  
+  for (i in 1:300){
+    y = rgamma(1,shape = k,scale = x/k)
+    u =runif(1,0,1)
+    r = r1(x,y,k)
+    if (u<=r){
+      x = y
+    }
+  }
+  
+  
+  for (i in 1:(50*1000+1)){
+    if (t > 49) {
+      t = 0
+      list = c(list,x)
+    }
+    
+    y = rgamma(1,shape = k,scale = x/k)
+    u =runif(1,0,1)
+    r = r1(x,y,k)
+    if (u<=r){
+      x = y
+      }
+    t=t+1
+  }
+  par(mfrow=c(1,2))
+  plot(list,type = "l",xlab = "iteration",ylab = "",
+       main = paste("using Gamma(",k,",x/",k,")", sep = ""))
+  plot(density(list),main = 
+         paste("using Gamma(",k,",x/",k,")", sep = ""))
+  list
+}
+```
+
+$Gamma(k,\theta)$ has mean $k\theta$
+
+we can draw $y_i$ from $Gamma(k,x_{i-1}/k)$ or $Gamma(x_{i-1}/\theta,\theta)$
+
+generate $y_i$ from $q(y|x_{i-1})$ which is $gamma(k,x_{i-1}/k))$ or $gamma(x_{i-1}/\theta,\theta))$
+
+here is some plot of our output.
+
+```{r,echo = FALSE}
+output = data.frame("sample mean"=0,"1/sample mean"=0)
+output[1,1] =sqrt(2/1.5)
+output[1,2] =sqrt(1.5/2)+1/(2*2)
+rownames(output)[1] = "True value"
+list = fun_shape(2)
+output[2,1] = mean(list)
+output[2,2] = mean(1/list)
+rownames(output)[2] = "Gamma(2,x/2)"
+list = fun_shape(10)
+output[3,1] = mean(list)
+output[3,2] = mean(1/list)
+rownames(output)[3] = "Gamma(10,x/10)"
+list = fun_scale(2)
+output[4,1] = mean(list)
+output[4,2] = mean(1/list)
+rownames(output)[4] = "Gamma(x/2,2)"
+list = fun_scale(10)
+output[5,1] = mean(list)
+output[5,2] = mean(1/list)
+rownames(output)[5] = "Gamma(x/10,10)"
+```
+
+Here is the table showing the mean of the sampele and the mean of 1/sample
+
+```{r,echo=FALSE}
+output
+```
+
+they are similar enough with each other and it seems all of them provide reasonable estimates.
