@@ -1,0 +1,191 @@
+---
+output: pdf_document
+---
+
+# 3.In chemical kinetics the Michaelis-Menten model...
+
+```{r,echo=FALSE}
+x = c(0.02, 0.06, 0.11, 0.22, 0.56, 1.10, 0.02, 0.06, 0.11, 0.22, 0.56, 1.10)
+y = c(47, 97, 123, 152, 191, 200, 76, 107, 139, 159, 201, 207)
+```
+
+##(a) A quick way for finding rough estimates...
+
+Using lm function in R, we can easily get the $\beta_0$ and $\beta_1$ with least squares 
+```{r,echo=FALSE}
+y2=1/y
+x2=1/x
+coef = lm(y2~x2)$coef
+print(paste("beta0 is",coef[1],"beta1 is",coef[2]))
+```
+
+so that we can get $\hat\theta_1=1/\beta_0$ and $\hat\theta_2=\beta_1/\beta_0$ as follows:
+
+```{r,echo=FALSE}
+theta1=1/coef[1]
+theta2=coef[2]/coef[1]
+print(paste("theta1_hat is",theta1,"theta2_hat is",theta2))
+```
+
+## (b)
+
+$$
+\begin{split}
+g(\theta_1,\theta_2)&=\sum_{i=1}^n(y_i-\frac{\theta_1x_i}{x_i+\theta_2})^2\\
+\frac {\partial g} {\partial \theta_1}&=2\sum_{i=1}^n(y_i-\frac{\theta_1x_i}{x_i+\theta_2})(-\frac{x_i}{x_i+\theta_2})\\
+\frac {\partial g} {\partial \theta_2}&= 2\sum_{i=1}^n(y_i-\frac{\theta_1x_i}{x_i+\theta_2})(\frac{\theta_1x_i}{(x_i+\theta_2)^2})\\
+\frac {\partial^2 g} {(\partial \theta_1)^2}&= 2\sum_{i=1}^n(\frac{x_i}{x_i+\theta_2})^2\\
+\frac {\partial^2 g} {\partial \theta_1\partial \theta_2}&= 2\sum_{i=1}^n(\frac{y_ix_i}{(x_i+\theta_2)^2}-\frac{2\theta_1x_i^2}{(x_i+\theta_2)^3})\\
+\frac {\partial^2 g} {(\partial \theta_2)^2}&= 2\sum_{i=1}^n(\frac{-2y_i\theta_1x_i}{(x_i+\theta_2)^3}+\frac{3\theta_1^2x_i^2}{(x_i+\theta_2)^4})\\
+\end{split}
+$$
+
+and then we can get the first derivative vector and the hessian matrix and do a Newton-Raphson algorithm. The code is in the code file, here is the results.
+
+```{r,echo=FALSE}
+g=function(theta){
+  sum((y-(theta[1]*x)/(x+theta[2]))^2)
+}
+g1=function(theta){
+  2*sum((y-(theta[1]*x)/(x+theta[2]))*(-x/(x+theta[2])))
+}
+g2=function(theta){
+  2*sum((y-(theta[1]*x)/(x+theta[2]))*(theta[1]*x/(x+theta[2])^2))
+}
+g11=function(theta){
+  2*sum((x/(x+theta[2]))^2)
+}
+g12=function(theta){
+  2*sum(y*x/(x+theta[2])^2-2*theta[1]*x^2/(x+theta[2])^3)
+}
+g22=function(theta){
+  2*sum(-2*y*x*theta[1]/(x+theta[2])^3+3*x^2*theta[1]^2/(x+theta[2])^4)
+}
+
+NR=function(theta){
+  a=theta
+  a1=a+2
+  t=0
+  while (sum(abs(a1-a))>0.0001){
+    a1=a
+    
+    f1=c(g1(a),g2(a))
+    hessian=matrix(c(g11(a),g12(a),g12(a),g22(a)),2,2)
+    
+    h=-solve(hessian)%*%f1
+    a=a+h
+    if (t>100){return(a)}#maximum interation control
+    if (sum(abs(a1-a))>10^3){return(NA)}#it did not converge.
+    t=t+1
+  }
+  a
+}
+
+theta=matrix(c(theta1,theta2),nrow=2)
+
+
+
+```
+
+
+```{r,echo=FALSE}
+a=NR(theta)
+cbind("theta1"=a[1,1],"theta2"=a[2,1])
+```
+
+## (c) Repeat (b) with the steepest descent algorithm.
+
+change the update rule to
+$$
+X_{t+1}=X_t-\alpha_tg'(X_t)
+$$
+if $g(X_{t+1})>g(X_{t})$ then half $\alpha$
+
+I firstly use $\alpha=1$, but it seems the magnitude of $\theta_1$ and $\theta_2$ is so different so that the algorithm will not converage to the ideal point. I try to set the $\alpha=diag(\theta_0)$ which will solve the magnitude problem, and the result is shown as below.
+
+```{r,echo=FALSE}
+sd=function(theta){
+  a=theta
+  a1=a+2
+  t=0
+  while (norm((a1-a),"2")>0.0001){
+    t=t+1
+    a1=a
+    f1=c(g1(a),g2(a))
+    
+    alpha=theta
+    a=a1-alpha*f1
+    while (g(a)>g(a1)) {
+      alpha=alpha/2
+      a=a1-alpha*f1
+    }
+    
+    if (t>10000){return(a)}#maximum interation control
+    if (sum(abs(a1-a))>10^5){return(NA)}#it did not converge.
+    
+  }
+  a
+}
+a=sd(theta)
+
+cbind("theta1"=a[1,1],"theta2"=a[2,1])
+```
+
+
+
+## (d) Repeat (b) with the Gauss-Newton algorithm.
+
+Consider 
+
+$$
+g(\theta)=-\sum_{i=1}^n(y_i-f_i(\theta))^2
+$$
+where
+$$
+\begin{split}
+f_i(\theta)&=\frac{\theta_1 x_i}{x_i+\theta_2}\\
+f'_i(\theta)&=[\frac{x_i}{x_i+\theta_2},-\frac{\theta_1x_i}{(x_i+\theta_2)^2}]^T\\
+\end{split}
+$$
+then we get
+$$
+\begin{split}
+A=A(\theta)&=[f_1'(\theta)^T,...,f_n'(\theta)^T]^T\\
+Z=Z(\theta)&=[y_1-f_1(\theta),...,y_n-f_n(\theta)]^T\\
+\end{split}
+$$
+
+The updating formula is 
+
+$$
+\theta_{t+1}=\theta_t+(A_t^TA_t)^{-1}A^T_tZ_t
+$$
+
+here is the results
+```{r,echo=FALSE}
+Z=function(theta){
+  y-theta[1]*x/(x+theta[2])
+}
+
+A=function(theta){
+  sapply(x,function(x){c(x/(x+theta[2]),-theta[1]*x/(x+theta[2])^2)})
+}
+
+gn=function(theta){
+  a=theta
+  a1=a+2
+  t=0
+  while (sum(abs(a1-a))>0.0001){
+    a1=a
+    a=a+solve(A(a)%*%t(A(a)))%*%A(a)%*%Z(a)
+    if (t>100){return(a)}#maximum interation control
+    if (sum(abs(a1-a))>10^3){return(NA)}#it did not converge.
+    t=t+1
+  }
+  a
+}
+a=gn(theta)
+cbind("theta1"=a[1,1],"theta2"=a[2,1])
+```
+
+

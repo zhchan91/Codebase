@@ -1,0 +1,465 @@
+---
+title: "STA 243 Assignment 1"
+author: "Chen Zihao 915490404"
+output:
+  pdf_document: default
+  html_document: default
+---
+#(Chen Zihao:100%) 1. The Cauchy.....
+##(a) 
+
+the likelihood function is that
+
+$$
+L(\theta|x)=f_n(x|\theta)=\Pi_{i=1}^n\frac 1 {\pi[1+(x-\theta)^2]}
+$$
+
+then we can get:
+
+1) the log likelihood function is that
+
+$$
+l(\theta)=-nlog\pi-\sum_{i=1}^n\log[1+(\theta-x_i)^2]
+$$
+
+2) take the first derivative and we can get
+
+$$
+l'(\theta)=-\sum_{i=1}^n\frac {2(\theta-x_i)}{1+(\theta-x_i)^2}
+$$
+
+3) take the second derivative and we can get
+
+$$
+l''(\theta)=-2\sum_{i=1}^n\frac {1+(\theta-x_i)^2-2(\theta-x_i)(\theta-x_i)}{[1+(\theta-x_i)^2]^2}=-2\sum_{i=1}^n\frac {1-(\theta-x_i)^2}{[1+(\theta-x_i)^2]^2}
+$$
+
+## (b) Show that the Fisher information is $I(\theta)=\frac n 2$
+
+$$
+\begin{split}
+I(\theta)=-E(l''(\theta))&=2nE(\frac {1-(\theta-x_1)^2}{[1+(\theta-x_1)^2]^2})\\
+&=\frac{2n}\pi\int_{-\infty}^\infty\frac 1 {[1+(x-\theta)^2]^2}-\frac {2(x-\theta)^2}{[1+(x-\theta)^2]^3} dx\\
+&=\frac{2n}\pi\int_{-\infty}^\infty\frac 1 {[1+x^2]^2}-\frac {2x^2}{[1+x^2]^3} dx\\
+&=\frac{2n}\pi\int_{-\infty}^\infty\frac 1 {[1+x^2]^2}-\frac {2}{[1+x^2]^2}+\frac {2}{[1+x^2]^3} dx\\
+&=\frac{2n}\pi\int_{-\infty}^\infty\frac {-1} {[1+x^2]^2}+\frac {2}{[1+x^2]^3} dx\\
+\end{split}
+$$
+let 
+$$
+F_k=\int_{-\infty}^\infty\frac 1 {[1+x^2]^k}dx
+$$
+
+we can get
+
+$$
+\begin{split}
+F_k&=\int_{-\infty}^\infty\frac 1 {[1+x^2]^k}dx\\
+&=\int_{-\infty}^\infty\frac {1+x^2} {[1+x^2]^{k+1}}dx\\
+&=F_{k+1}+\int_{-\infty}^\infty\frac {2kx} {[1+x^2]^{k+1}}\frac x {2k}dx\\
+&=F_{k+1}+\frac 1 {2k}\int_{-\infty}^\infty\frac {1} {[1+x^2]^{k}}dx=F_{k+1}+\frac 1 {2k} F_k\\
+\end{split}
+$$
+By an integration by parts.
+
+Hence we get
+
+$F_1=\pi$ and $F_{k+1}=\frac{2k-1}{2k}F_k,k>1$
+
+so that $F_1=\pi,F_2=\pi/2,F_3=3\pi/8$
+$$
+I(\theta)=\frac {2n}\pi [-F_2+2F_3]=\frac n 2
+$$
+
+## (c) Use the following data, graph the log likelihood function....
+
+```{r,echo=FALSE}
+x1=c(-13.87,-2.53,-2.44,-2.40,-1.75,-1.34,-1.05,-0.23,-0.07, 0.27, 1.77, 2.76, 3.29, 3.47, 3.71,3.80, 4.24, 4.53, 43.21, 56.75)
+
+llf = function(theta){
+  sapply(theta,function(theta){-length(x1)*log(pi)-sum(log(1+(theta-x1)^2))})
+  }
+
+t <- seq(from = -20 , to = 50 ,by = 0.01) 
+
+plot(t,llf(t),type = "l",xlab = "theta", ylab="log likelihood function",main = "log likelihood function graph of the given data" )
+```
+
+It shows that the maximum is near 0,there is a local maximum and local minimum at little bit larger than 0, there seems a station point near 40.
+
+## (d) Find the MLE for $\theta$ using the Newton-Raphson method....
+
+```{r,echo=FALSE}
+start=c(-11,-1, 0, 1.4, 4.1, 4.8, 7, 8, 38)
+#first order
+l1=function(x){
+  -2*sum((x-x1)/(1+(x-x1)^2))
+}
+#second order
+l2=function(x){
+  -2*sum((1-(x-x1)^2)/(1+(x-x1)^2)^2)
+}
+
+#Newton-Raphson method
+NR=function(x0){
+  a=x0
+  a1=a+2
+  t=0
+  while (abs(a1-a)>0.001){
+    a1=a
+    h=-l1(a)/l2(a)
+    a=a+h
+    if (t>30){return(a)}#maximum interation control
+    if (abs(a1-a)>10^5){return(NA)}#it did not converge.
+    t=t+1
+  }
+  a
+}
+```
+
+with the given initial point, some points did not converge. The following table shows the results:
+
+```{r,echo=FALSE}
+a = sapply(start,NR)
+rbind(start,"theta value" = a,"function value"=llf(a))
+```
+
+## (e) First use Fisher scoring to find the MLE for ....
+
+First use Fisher scoring to find the MLE for $\theta$
+
+```{r,echo = FALSE}
+NR2=function(x0){
+  a=x0
+  a1=a+2
+  t=0
+  while (abs(a1-a)>0.001){
+    a1=a
+    h=2*l1(a)/length(x1)
+    a=a+h
+    if (t>30){return(a)}#maximum interation control
+    if (abs(a1-a)>10^5){return(NA)}#if it did not converge.
+    t=t+1
+  }
+  a
+}
+start2 = sapply(start,NR2)
+```
+
+the new initial point becomes
+```{r,echo=FALSE}
+start2
+```
+
+Then refine my estimate using Newton-Raphson.
+
+```{r,echo=FALSE}
+a = sapply(start2,NR)
+rbind(start,"new initialpoint"=start2,"theta value" = a,"function value"=llf(a))
+```
+
+Compare with the previous one, Most of them is now stable although some of them are still trapped in the local maximum/minimum point. Those can not converage in (d) can converage now.
+
+
+# (Chen Zihao:100%) 2.Consider the following .....
+
+(a) Graph the log likelihood function.
+
+$$
+\begin{split}
+L(\theta|x)&=\frac {\prod_{i=1}^n[[1-\cos(x_i-\theta)]} {2^n\pi^n}\\
+l(\theta)&=\log L(\theta|x)=\sum_{i=1}^n\log(1-\cos(x_i-\theta))-n\log(2\pi)
+\end{split}
+$$
+
+The graph is like below:
+
+```{r,echo=FALSE}
+x1 = c(0.52, 1.96, 2.22, 2.28, 2.28, 2.46, 2.50, 2.53, 2.54, 2.99, 3.47, 3.53,3.70, 3.88, 3.91, 4.04, 4.06, 4.82, 4.85, 5.46)
+#log likelihood function
+llf=function(theta){
+  sapply(theta,function(theta){sum(log(1-cos(x1-theta)))-length(x1)*log(2*pi)})
+}
+
+t <- seq(from = -pi , to = pi ,by = 0.01) 
+
+plot(t,llf(t),type = "l",xlab = "theta", ylab="log likelihood function",main = "log likelihood function graph of the given data" )
+```
+
+## (b) Find the method of moments ....
+
+$$
+\begin{split}
+E(x)&=\int_0^{2\pi}\frac{x-x\cos(x-\theta)}{2\pi}dx\\
+&=\frac1{2\pi}(\int_0^{2\pi}xdx-\int_0^{2\pi}x\cos(x-\theta)dx)\\
+&=\frac1{2\pi}(2\pi^2-\int_{-\theta}^{2\pi-\theta}(x+\theta)\cos(x)dx)\\
+&=\pi-\frac1{2\pi}(\theta\int_{-\theta}^{2\pi-\theta}\cos(x)dx+\int_{-\theta}^{2\pi-\theta}x\cos(x)dx)\\
+&=\pi-\frac1{2\pi}(\int_{-\theta}^{2\pi-\theta}x\cos(x)dx)\\
+&=\pi+\sin(\theta)
+\end{split}
+$$
+
+so that we get $\hat\theta_{moment}=\arcsin(\bar x-\pi)$
+
+plug the given data in we can get MOM=
+
+```{r,echo=FALSE}
+x0=asin(mean(x1)-pi)
+x0
+```
+
+## (c) Find the MLE for $\theta$ using Newton-Raphson with MOM.
+
+$$
+\begin{split}
+l(\theta)&=\sum_{i=1}^n\log(1-\cos(x_i-\theta))-n\log(2\pi)\\
+l'(\theta)&=\sum_{i=1}^n\frac{-\sin(x_i-\theta)}{1-\cos(x_i-\theta)}\\
+l''(\theta)&=\sum_{i=1}^n\frac{-1}{1-\cos(x_i-\theta)}\\
+\end{split}
+$$
+
+After Newton-Rapson we can get 
+
+```{r,echo=FALSE}
+l1=function(theta){
+  sum((-sin(x1-theta))/(1-cos(x1-theta)))
+}
+l2=function(theta){
+  sum((-1)/(1-cos(x1-theta)))
+}
+
+NR=function(x0){
+  a=x0
+  a1=a+2
+  t=0
+  while (abs(a1-a)>10^-15){
+    a1=a
+    h=-l1(a)/l2(a)
+    a=a+h
+    if (t>50){return(a)}#maximum interation control
+    if (abs(a1-a)>10^5){return(NA)}#it did not converge.
+    t=t+1
+  }
+  a
+}
+
+start=x0
+theta_hat=sapply(start,NR)
+func_value=sapply(theta_hat,llf)
+rbind(start,theta_hat,func_value)
+```
+
+## (d) What solutions do you find when you start at -2.7 and 2.7
+
+```{r,echo=FALSE}
+start=c(-2.7,2.7)
+theta_hat=sapply(start,NR)
+func_value=sapply(theta_hat,llf)
+rbind(start,theta_hat,func_value)
+```
+
+It will converge to the local stationary point but not the global maximum point ( as shown in the graph).
+
+
+## (e) Repeat the above using 200 equally-spaced...
+
+Here is a table about the the $\hat\theta$ and its frequency.
+```{r,echo=FALSE}
+t <- seq(from = -pi , to = pi ,length.out = 200) 
+theta=sapply(t,NR)
+data.frame(table(theta))
+```
+
+
+
+---
+output: pdf_document
+---
+
+# (Chen Zihao:100%) 3.In chemical kinetics the Michaelis-Menten model...
+
+```{r,echo=FALSE}
+x = c(0.02, 0.06, 0.11, 0.22, 0.56, 1.10, 0.02, 0.06, 0.11, 0.22, 0.56, 1.10)
+y = c(47, 97, 123, 152, 191, 200, 76, 107, 139, 159, 201, 207)
+```
+
+##(a) A quick way for finding rough estimates...
+
+Using lm function in R, we can easily get the $\beta_0$ and $\beta_1$ with least squares 
+```{r,echo=FALSE}
+y2=1/y
+x2=1/x
+coef = lm(y2~x2)$coef
+print(paste("beta0 is",coef[1],"beta1 is",coef[2]))
+```
+
+so that we can get $\hat\theta_1=1/\beta_0$ and $\hat\theta_2=\beta_1/\beta_0$ as follows:
+
+```{r,echo=FALSE}
+theta1=1/coef[1]
+theta2=coef[2]/coef[1]
+print(paste("theta1_hat is",theta1,"theta2_hat is",theta2))
+```
+
+## (b)
+
+$$
+\begin{split}
+g(\theta_1,\theta_2)&=\sum_{i=1}^n(y_i-\frac{\theta_1x_i}{x_i+\theta_2})^2\\
+\frac {\partial g} {\partial \theta_1}&=2\sum_{i=1}^n(y_i-\frac{\theta_1x_i}{x_i+\theta_2})(-\frac{x_i}{x_i+\theta_2})\\
+\frac {\partial g} {\partial \theta_2}&= 2\sum_{i=1}^n(y_i-\frac{\theta_1x_i}{x_i+\theta_2})(\frac{\theta_1x_i}{(x_i+\theta_2)^2})\\
+\frac {\partial^2 g} {(\partial \theta_1)^2}&= 2\sum_{i=1}^n(\frac{x_i}{x_i+\theta_2})^2\\
+\frac {\partial^2 g} {\partial \theta_1\partial \theta_2}&= 2\sum_{i=1}^n(\frac{y_ix_i}{(x_i+\theta_2)^2}-\frac{2\theta_1x_i^2}{(x_i+\theta_2)^3})\\
+\frac {\partial^2 g} {(\partial \theta_2)^2}&= 2\sum_{i=1}^n(\frac{-2y_i\theta_1x_i}{(x_i+\theta_2)^3}+\frac{3\theta_1^2x_i^2}{(x_i+\theta_2)^4})\\
+\end{split}
+$$
+
+and then we can get the first derivative vector and the hessian matrix and do a Newton-Raphson algorithm. The code is in the code file, here is the results.
+
+```{r,echo=FALSE}
+g=function(theta){
+  sum((y-(theta[1]*x)/(x+theta[2]))^2)
+}
+g1=function(theta){
+  2*sum((y-(theta[1]*x)/(x+theta[2]))*(-x/(x+theta[2])))
+}
+g2=function(theta){
+  2*sum((y-(theta[1]*x)/(x+theta[2]))*(theta[1]*x/(x+theta[2])^2))
+}
+g11=function(theta){
+  2*sum((x/(x+theta[2]))^2)
+}
+g12=function(theta){
+  2*sum(y*x/(x+theta[2])^2-2*theta[1]*x^2/(x+theta[2])^3)
+}
+g22=function(theta){
+  2*sum(-2*y*x*theta[1]/(x+theta[2])^3+3*x^2*theta[1]^2/(x+theta[2])^4)
+}
+
+NR=function(theta){
+  a=theta
+  a1=a+2
+  t=0
+  while (sum(abs(a1-a))>0.0001){
+    a1=a
+    
+    f1=c(g1(a),g2(a))
+    hessian=matrix(c(g11(a),g12(a),g12(a),g22(a)),2,2)
+    
+    h=-solve(hessian)%*%f1
+    a=a+h
+    if (t>100){return(a)}#maximum interation control
+    if (sum(abs(a1-a))>10^3){return(NA)}#it did not converge.
+    t=t+1
+  }
+  a
+}
+
+theta=matrix(c(theta1,theta2),nrow=2)
+
+
+
+```
+
+
+```{r,echo=FALSE}
+a=NR(theta)
+cbind("theta1"=a[1,1],"theta2"=a[2,1])
+```
+
+## (c) Repeat (b) with the steepest descent algorithm.
+
+change the update rule to
+$$
+X_{t+1}=X_t-\alpha_tg'(X_t)
+$$
+if $g(X_{t+1})>g(X_{t})$ then half $\alpha$
+
+I firstly use $\alpha=1$, but it seems the magnitude of $\theta_1$ and $\theta_2$ is so different so that the algorithm will not converage to the ideal point. I try to set the $\alpha=diag(\theta_0)$ which will solve the magnitude problem, and the result is shown as below.
+
+```{r,echo=FALSE}
+sd=function(theta){
+  a=theta
+  a1=a+2
+  t=0
+  while (norm((a1-a),"2")>0.0001){
+    t=t+1
+    a1=a
+    f1=c(g1(a),g2(a))
+    
+    alpha=theta
+    a=a1-alpha*f1
+    while (g(a)>g(a1)) {
+      alpha=alpha/2
+      a=a1-alpha*f1
+    }
+    
+    if (t>10000){return(a)}#maximum interation control
+    if (sum(abs(a1-a))>10^5){return(NA)}#it did not converge.
+    
+  }
+  a
+}
+a=sd(theta)
+
+cbind("theta1"=a[1,1],"theta2"=a[2,1])
+```
+
+
+
+## (d) Repeat (b) with the Gauss-Newton algorithm.
+
+Consider 
+
+$$
+g(\theta)=-\sum_{i=1}^n(y_i-f_i(\theta))^2
+$$
+where
+$$
+\begin{split}
+f_i(\theta)&=\frac{\theta_1 x_i}{x_i+\theta_2}\\
+f'_i(\theta)&=[\frac{x_i}{x_i+\theta_2},-\frac{\theta_1x_i}{(x_i+\theta_2)^2}]^T\\
+\end{split}
+$$
+then we get
+$$
+\begin{split}
+A=A(\theta)&=[f_1'(\theta)^T,...,f_n'(\theta)^T]^T\\
+Z=Z(\theta)&=[y_1-f_1(\theta),...,y_n-f_n(\theta)]^T\\
+\end{split}
+$$
+
+The updating formula is 
+
+$$
+\theta_{t+1}=\theta_t+(A_t^TA_t)^{-1}A^T_tZ_t
+$$
+
+here is the results
+```{r,echo=FALSE}
+Z=function(theta){
+  y-theta[1]*x/(x+theta[2])
+}
+
+A=function(theta){
+  sapply(x,function(x){c(x/(x+theta[2]),-theta[1]*x/(x+theta[2])^2)})
+}
+
+gn=function(theta){
+  a=theta
+  a1=a+2
+  t=0
+  while (sum(abs(a1-a))>0.0001){
+    a1=a
+    a=a+solve(A(a)%*%t(A(a)))%*%A(a)%*%Z(a)
+    if (t>100){return(a)}#maximum interation control
+    if (sum(abs(a1-a))>10^3){return(NA)}#it did not converge.
+    t=t+1
+  }
+  a
+}
+a=gn(theta)
+cbind("theta1"=a[1,1],"theta2"=a[2,1])
+```
+
+

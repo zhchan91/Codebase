@@ -1,0 +1,111 @@
+---
+output: pdf_document
+---
+
+# 2.Consider the following .....
+
+(a) Graph the log likelihood function.
+
+$$
+\begin{split}
+L(\theta|x)&=\frac {\prod_{i=1}^n[[1-\cos(x_i-\theta)]} {2^n\pi^n}\\
+l(\theta)&=\log L(\theta|x)=\sum_{i=1}^n\log(1-\cos(x_i-\theta))-n\log(2\pi)
+\end{split}
+$$
+
+The graph is like below:
+```{r,echo=FALSE}
+x1 = c(0.52, 1.96, 2.22, 2.28, 2.28, 2.46, 2.50, 2.53, 2.54, 2.99, 3.47, 3.53,3.70, 3.88, 3.91, 4.04, 4.06, 4.82, 4.85, 5.46)
+#log likelihood function
+llf=function(theta){
+  sapply(theta,function(theta){sum(log(1-cos(x1-theta)))-length(x1)*log(2*pi)})
+}
+
+t <- seq(from = -pi , to = pi ,by = 0.01) 
+
+plot(t,llf(t),type = "l",xlab = "theta", ylab="log likelihood function",main = "log likelihood function graph of the given data" )
+```
+
+## (b) Find the method of moments ....
+
+$$
+\begin{split}
+E(x)&=\int_0^{2\pi}\frac{x-x\cos(x-\theta)}{2\pi}dx\\
+&=\frac1{2\pi}(\int_0^{2\pi}xdx-\int_0^{2\pi}x\cos(x-\theta)dx)\\
+&=\frac1{2\pi}(2\pi^2-\int_{-\theta}^{2\pi-\theta}(x+\theta)\cos(x)dx)\\
+&=\pi-\frac1{2\pi}(\theta\int_{-\theta}^{2\pi-\theta}\cos(x)dx+\int_{-\theta}^{2\pi-\theta}x\cos(x)dx)\\
+&=\pi-\frac1{2\pi}(\int_{-\theta}^{2\pi-\theta}x\cos(x)dx)\\
+&=\pi+\sin(\theta)
+\end{split}
+$$
+
+so that we get $\hat\theta_{moment}=\arcsin(\bar x-\pi)$
+
+plug the given data in we can get MOM=
+
+```{r,echo=FALSE}
+x0=asin(mean(x1)-pi)
+x0
+```
+
+## (c) Find the MLE for $\theta$ using Newton-Raphson with MOM.
+
+$$
+\begin{split}
+l(\theta)&=\sum_{i=1}^n\log(1-\cos(x_i-\theta))-n\log(2\pi)\\
+l'(\theta)&=\sum_{i=1}^n\frac{-\sin(x_i-\theta)}{1-\cos(x_i-\theta)}\\
+l''(\theta)&=\sum_{i=1}^n\frac{-1}{1-\cos(x_i-\theta)}\\
+\end{split}
+$$
+After Newton-Rapson we can get
+```{r,echo=FALSE}
+l1=function(theta){
+  sum((-sin(x1-theta))/(1-cos(x1-theta)))
+}
+l2=function(theta){
+  sum((-1)/(1-cos(x1-theta)))
+}
+
+NR=function(x0){
+  a=x0
+  a1=a+2
+  t=0
+  while (abs(a1-a)>10^-15){
+    a1=a
+    h=-l1(a)/l2(a)
+    a=a+h
+    if (t>50){return(a)}#maximum interation control
+    if (abs(a1-a)>10^5){return(NA)}#it did not converge.
+    t=t+1
+  }
+  a
+}
+
+start=x0
+theta_hat=sapply(start,NR)
+func_value=sapply(theta_hat,llf)
+rbind(start,theta_hat,func_value)
+```
+
+## (d) What solutions do you find when you start at -2.7 and 2.7
+
+```{r,echo=FALSE}
+start=c(-2.7,2.7)
+theta_hat=sapply(start,NR)
+func_value=sapply(theta_hat,llf)
+rbind(start,theta_hat,func_value)
+```
+
+It will converge to the local stationary point but not the global maximum point ( as shown in the graph).
+
+
+## (e) Repeat the above using 200 equally-spaced...
+
+Here is a table about the the $\hat\theta$ and its frequency.
+```{r,echo=FALSE}
+t <- seq(from = -pi , to = pi ,length.out = 200) 
+theta=sapply(t,NR)
+data.frame(table(theta))
+```
+
+

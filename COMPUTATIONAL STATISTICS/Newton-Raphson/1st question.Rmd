@@ -1,0 +1,161 @@
+---
+title: "STA 243 Assignment 1"
+author: "Chen Zihao 915490404"
+output:
+  pdf_document: default
+  html_document: default
+---
+# 1. The Cauchy.....
+##(a) 
+
+the likelihood function is that
+
+$$
+L(\theta|x)=f_n(x|\theta)=\Pi_{i=1}^n\frac 1 {\pi[1+(x-\theta)^2]}
+$$
+
+then we can get:
+
+1) the log likelihood function is that
+
+$$
+l(\theta)=-nlog\pi-\sum_{i=1}^n\log[1+(\theta-x_i)^2]
+$$
+
+2) take the first derivative and we can get
+
+$$
+l'(\theta)=-\sum_{i=1}^n\frac {2(\theta-x_i)}{1+(\theta-x_i)^2}
+$$
+
+3) take the second derivative and we can get
+
+$$
+l''(\theta)=-2\sum_{i=1}^n\frac {1+(\theta-x_i)^2-2(\theta-x_i)(\theta-x_i)}{[1+(\theta-x_i)^2]^2}=-2\sum_{i=1}^n\frac {1-(\theta-x_i)^2}{[1+(\theta-x_i)^2]^2}
+$$
+
+## (b) Show that the Fisher information is $I(\theta)=\frac n 2$
+
+$$
+\begin{split}
+I(\theta)=-E(l''(\theta))&=2nE(\frac {1-(\theta-x_1)^2}{[1+(\theta-x_1)^2]^2})\\
+&=\frac{2n}\pi\int_{-\infty}^\infty\frac 1 {[1+(x-\theta)^2]^2}-\frac {2(x-\theta)^2}{[1+(x-\theta)^2]^3} dx\\
+&=\frac{2n}\pi\int_{-\infty}^\infty\frac 1 {[1+x^2]^2}-\frac {2x^2}{[1+x^2]^3} dx\\
+&=\frac{2n}\pi\int_{-\infty}^\infty\frac 1 {[1+x^2]^2}-\frac {2}{[1+x^2]^2}+\frac {2}{[1+x^2]^3} dx\\
+&=\frac{2n}\pi\int_{-\infty}^\infty\frac {-1} {[1+x^2]^2}+\frac {2}{[1+x^2]^3} dx\\
+\end{split}
+$$
+let 
+$$
+F_k=\int_{-\infty}^\infty\frac 1 {[1+x^2]^k}dx
+$$
+
+we can get
+
+$$
+\begin{split}
+F_k&=\int_{-\infty}^\infty\frac 1 {[1+x^2]^k}dx\\
+&=\int_{-\infty}^\infty\frac {1+x^2} {[1+x^2]^{k+1}}dx\\
+&=F_{k+1}+\int_{-\infty}^\infty\frac {2kx} {[1+x^2]^{k+1}}\frac x {2k}dx\\
+&=F_{k+1}+\frac 1 {2k}\int_{-\infty}^\infty\frac {1} {[1+x^2]^{k}}dx=F_{k+1}+\frac 1 {2k} F_k\\
+\end{split}
+$$
+By an integration by parts.
+
+Hence we get
+
+$F_1=\pi$ and $F_{k+1}=\frac{2k-1}{2k}F_k,k>1$
+
+so that $F_1=\pi,F_2=\pi/2,F_3=3\pi/8$
+$$
+I(\theta)=\frac {2n}\pi [-F_2+2F_3]=\frac n 2
+$$
+
+## (c) Use the following data, graph the log likelihood function....
+
+```{r,echo=FALSE}
+x1=c(-13.87,-2.53,-2.44,-2.40,-1.75,-1.34,-1.05,-0.23,-0.07, 0.27, 1.77, 2.76, 3.29, 3.47, 3.71,3.80, 4.24, 4.53, 43.21, 56.75)
+
+llf = function(theta){
+  sapply(theta,function(theta){-length(x1)*log(pi)-sum(log(1+(theta-x1)^2))})
+  }
+
+t <- seq(from = -20 , to = 50 ,by = 0.01) 
+
+plot(t,llf(t),type = "l",xlab = "theta", ylab="log likelihood function",main = "log likelihood function graph of the given data" )
+```
+
+It shows that the maximum is near 0,there is a local maximum and local minimum at little bit larger than 0, there seems a station point near 40.
+
+## (d) Find the MLE for $\theta$ using the Newton-Raphson method....
+
+```{r,echo=FALSE}
+start=c(-11,-1, 0, 1.4, 4.1, 4.8, 7, 8, 38)
+#first order
+l1=function(x){
+  -2*sum((x-x1)/(1+(x-x1)^2))
+}
+#second order
+l2=function(x){
+  -2*sum((1-(x-x1)^2)/(1+(x-x1)^2)^2)
+}
+
+#Newton-Raphson method
+NR=function(x0){
+  a=x0
+  a1=a+2
+  t=0
+  while (abs(a1-a)>0.001){
+    a1=a
+    h=-l1(a)/l2(a)
+    a=a+h
+    if (t>30){return(a)}#maximum interation control
+    if (abs(a1-a)>10^5){return(NA)}#it did not converge.
+    t=t+1
+  }
+  a
+}
+```
+
+with the given initial point, some points did not converge. The following table shows the results:
+
+```{r,echo=FALSE}
+a = sapply(start,NR)
+rbind(start,"theta value" = a,"function value"=llf(a))
+```
+
+## (e) First use Fisher scoring to find the MLE for ....
+
+First use Fisher scoring to find the MLE for $\theta$
+
+```{r,echo = FALSE}
+NR2=function(x0){
+  a=x0
+  a1=a+2
+  t=0
+  while (abs(a1-a)>0.001){
+    a1=a
+    h=2*l1(a)/length(x1)
+    a=a+h
+    if (t>30){return(a)}#maximum interation control
+    if (abs(a1-a)>10^5){return(NA)}#if it did not converge.
+    t=t+1
+  }
+  a
+}
+start2 = sapply(start,NR2)
+```
+
+the new initial point becomes
+```{r,echo=FALSE}
+start2
+```
+
+Then refine my estimate using Newton-Raphson.
+
+```{r,echo=FALSE}
+a = sapply(start2,NR)
+rbind(start,"new initialpoint"=start2,"theta value" = a,"function value"=llf(a))
+```
+
+Compare with the previous one, Most of them is now stable although some of them are still trapped in the local maximum/minimum point. Those can not converage in (d) can converage now.
