@@ -1,0 +1,459 @@
+---
+title: "STA 243 Assignment 1"
+author: "Chen Zihao 915490404"
+date: "Jichen Xu 915543694"
+output:
+  pdf_document: default
+---
+# 1. Simulated Annealing
+
+(Chen zihao:75%, Jichen Xu:25%)
+
+ Let input the distance matrix into R first by pasted from the pdf. 
+```{r,echo=FALSE}
+#Distance matrix
+D = matrix (c(
+0,1,2,4,9,8,3,2,1,5,7,1,2,9,3,
+1,0,5,3,7,2,5,1,3,4,6,6,6,1,9,
+2,5,0,6,1,4,7,7,1,6,5,9,1,3,4,
+4,3,6,0,5,2,1,6,5,4,2,1,2,1,3,
+9,7,1,5,0,9,1,1,2,1,3,6,8,2,5,
+8,2,4,2,9,0,3,5,4,7,8,3,1,2,5,
+3,5,7,1,1,3,0,2,6,1,7,9,5,1,4,
+2,1,7,6,1,5,2,0,9,4,2,1,1,7,8,
+1,3,1,5,2,4,6,9,0,3,3,5,1,6,4,
+5,4,6,4,1,7,1,4,3,0,9,1,8,5,2,
+7,6,5,2,3,8,7,2,3,9,0,2,1,8,1,
+1,6,9,1,6,3,9,1,5,1,2,0,5,4,3,
+2,6,1,2,8,1,5,1,1,8,1,5,0,9,6,
+9,1,3,1,2,2,1,7,6,5,8,4,9,0,7,
+3,9,4,3,5,5,4,8,4,2,1,3,6,7,0
+),15,15)
+```
+
+1.1 First, we need to define the path in a vector form. label the city with numbers instead of alphabet, e.g. 1 for A , 2 for B, etc. then we can get the path which is also the candidate in this problem:
+
+$\theta = (i_1,...,i_{15})$ where $i_j\ne i_k$ and $i_j\in \{1,2,...,15\}$
+
+the candidate space contains all the possible $\theta$.
+
+To solve the travel problem, we should also compute the total distance. Here is the function to calculate the total distances for each candidate path.
+
+$$
+Distance(\theta) = d(i_{15},i_{1})+\sum_{j=1}^{14}d(i_j,i_{j+1})
+$$
+
+where $d(i_{j},i_{k})$ is the distance from $i_{j}$ city to the $i_{k}$ city which is given in the matrix mentioned in the beginning  $d(i_{j},i_{k})=D_{jk}$ 
+
+```{r,echo=FALSE}
+Distance = function(x){
+  dis = D[x[15],x[1]]
+  for (i in 1:14){
+    dis = dis + D[x[i],x[i+1]]
+  }
+  dis
+}
+```
+
+1.2 Second, the Simulated Anealing algorithm part.
+
+1.2.0 Initialization
+
+initialize $\tau_1= 400$ and other things mentioned in the question.
+
+1.2.1 step 1: sample a candidate
+
+From the first part, we have define what is the candidate space. To use a uniform distribution for the proposal density. Get the random number j and k uniformly without replacement and then  switch $i_j$ and $i_k$ and I did it twice to get the neighbour which means in this step I will exchange at least 2 at most 4 variables.
+
+```{r,echo=FALSE}
+step1 = function (best) {
+  order = sample(1:15,2)
+  
+  theta = best
+  temp = theta[order[1]]
+  theta[order[1]] = theta[order[2]]
+  theta[order[2]] = temp
+  theta
+}
+```
+
+1.2.2 step 2: calculate the distance and compare them.
+
+a) if the new candidate is better than the previous best one, take the candidate as the best.
+
+$\Delta=Distance(\theta^*)-Distance(\theta_k)<0$ where $\theta_k$ is the recent best solution and $\theta^*$ is the new candidate drawn by the step 1, then take $\theta^*$ as $\theta_{k+1}$
+
+b) Otherwise, $\theta_{k+1}=\theta^*$ with a probability $\exp(-\frac\Delta {\tau_j})$, keep $\theta_{k+1}=\theta_{k}$ o.w.
+
+```{r,echo=FALSE}
+step2 = function (theta,best,tau){
+  Delta = Distance(theta) - Distance(best)
+  if (Delta > 0){
+    p = exp(-Delta/tau)
+    coin = rbinom(1,1,p)
+    if(coin == 1){
+      best = theta
+    }
+  }
+  else best = theta
+  best
+}
+```
+
+1.2.3 step 3: repeat step 1 and 2 $m_j=100$ times.
+
+1.2.4 step 4: update $\tau_{j+1}=\alpha(\tau_j), m_{j+1}=\beta(m_j)$ and move to stage j+1.
+
+1.2.5 step 5: reheat.
+
+run the algorithm again with the initial point as the previous result.
+
+here is the result for different parameters:
+
+1. $p=0.999,tau = 400$
+
+the result path is of length:
+```{r,echo = FALSE}
+#the algorithm
+sa = function (best){
+  for (j in 1:1000){#run 1000 stages
+    for (i in 1:m){
+      theta = step1(best)#step 1 part 1 switch once
+      theta = step1(theta)# step 1 part 2 switch second time
+      best = step2(theta,best,tau) # step 2
+      }#run for m times , step 3
+    tau = p*tau #step 4
+    }
+  best
+}
+```
+
+
+```{r,echo = FALSE}
+#initialization
+best = 1:15#the initial point,sample(1:15) will be the random initial point.
+p=0.999
+m=100
+tau = 400
+
+#run and reheat it,
+# for (k in 1:3){
+   best = sa(best)
+# }
+# I did not reheat it in this part because it is useless. I save some output time when i knit it as the pdf.
+Distance(best)
+```
+the result is bad because $exp(-30/(400*0.999^{1000}))=0.815$, the chance to accept the worse case is still high even in the final stage. The temperture is still high in the end.
+
+2. $p=0.99,tau = 400$
+```{r,echo = FALSE}
+#initialization
+best = 1:15#the initial point,sample(1:15) will be the random initial point.
+p=0.99
+m=100
+tau = 400
+
+#run and reheat it
+for (k in 1:3){
+  best = sa(best)
+}
+Distance(best)
+```
+
+I run it several times, the results are stable around 17 to 20, which are good enough. One of the best path (with distance 17) I found is (3,9,1,2,8,12,10,15,11,13,6,14,4,7,5)
+
+
+
+
+
+# 2. Genetic Algorithms
+
+(Chen zihao:75%, Jichen Xu:25%) 
+
+2.0 the graph of original data is shown as follow.
+
+```{r,echo=FALSE}
+truefunction<-function(x){
+  t <- c(0.1, 0.13, 0.15, 0.23, 0.25, 0.4, 0.44, 0.65, 0.76, 0.78, 0.81)
+  h <- c(4, -5, 3, -4, 5, -4.2, 2.1, 4.3, -3.1, 2.1, -4.2)
+  temp <- 0
+  for(i in 1:11) {
+    temp <- temp + h[i]/2 * (1 + sign(x - t[i]))
+    }
+  return(temp)
+  }
+n<-512
+x<-(0:(n-1))/n
+f<-truefunction(x)
+set.seed(0401)
+y<-f+rnorm(f)/3
+plot(x,y)
+lines(x,f)
+```
+
+2.1 Randomly generate an initial population of chromosomes of size S.
+
+I will use a matrix form to store the chromosomes, each row of the matrix is a chromosome. Every chromosome is a 512 demension vector and each element is 0 or 1.
+If the ith element is 1 which means $x_i$ is a breakpoint. 
+
+there is a special point $(x_1,y_1)$ it will always be a break point as the model (1) shows, for convience in coding, i will set the first elements in the chromosomes always be zero.
+
+```{r,echo=FALSE}
+S=300
+P=0.9
+Pc=0.05
+Nsame=20
+
+n = length(x)
+chromosomes1 = matrix(rbinom(n*S,1,0.5),S,n)
+chromosomes1[,1] = 0
+```
+
+
+2.2 Compute the MDL/AIC value for each of the S chromosomes.
+
+First we need to code the function to calculate the MDL and AIC which will be shown in the coding file. Then We can compute the value for each chromosomes.
+```{r,echo=FALSE}
+pred = function (chrom,y){
+  bj = which (chrom == 1) #b1 to b_{B-1}
+  B = sum(chrom)+1
+  nhat = bj[-1]-bj[-B+1]
+  nhat = c(bj[1]-1,nhat,length(y)-bj[B-1]+1)
+  
+  yhat = rep(mean(y[1:(bj[1]-1)]),nhat[1])
+  
+  for (i in 1:(B-2)) {
+    yhat = c(yhat,rep(mean(y[bj[i]:(bj[i+1]-1)]),nhat[i+1]))
+  }
+  yhat = c(yhat,rep(mean(y[bj[(B-1)]:length(y)]),nhat[length(nhat)]))
+  yhat
+}
+
+MDL = function(chrom,y){
+  n = length(y)
+  
+  B = sum(chrom)+1 #the number of pieces
+  
+  #b_j where is the break points.
+  bj=which(chrom == 1)
+  
+  #how many obervations in each pieces. 
+  #Attention for the case when the first element of the chromosome is 1. 
+  #if it is the case, then the first piece will contain 0 observations in it.
+  nhat = bj[-1]-bj[-B+1]
+  nhat = c(bj[1]-1,nhat,length(y)-bj[B-1]+1)
+  if (is.na(nhat[1])){
+    MD=NA
+  } else {
+    MD = B*log(n)+sum(log(nhat))/2+n/2*log(sum((y-pred(chrom,y))^2)/n)
+    }
+  MD
+}
+
+AIC = function(chrom,y){
+  B = sum(chrom)+1
+  n = length(y)
+  n*log(sum((y-pred(chrom,y))^2)/n)+log(n)*2*B
+}
+
+value = function (chrom,y,method){
+  v = rep(0,nrow(chrom))
+  for (i in 1:nrow(chrom)){
+    if (method == 1) {
+      v[i] = MDL(chrom[i,],y)
+    } else if (method == 2){
+      v[i] = AIC(chrom[i,],y)
+    }
+  }
+  v
+}
+```
+
+
+2.3 Sort the MDL/AIC values in descending order. Assign rank 1 to the chromosome with the largest MDL/AIC value, rank 2 to the one with the second largest and so on. Denote the rank of chromosome i as $r_i$.
+
+```{r,echo=FALSE}
+Sort = function (chrom,y,method){
+  chrom[order(value(chrom,y,method),decreasing = TRUE),]
+}
+```
+
+
+2.4 With probability $P_{cross}$, perform a crossover operation. Otherwise, perform a mutation operation.
+
+for crossover, first we need to select the two parents.
+
+for the ith chromosomes in the orderd matrix above, it has the probability of $\frac{2r_i}{(1+S)S}$ to be chosen. To make life easiler, I draw the parents with replacement.
+
+In this case, it is equivalent as the following case:
+
+put $(1+S)S/2$ balls in a box with the following rules: for each ball we label it with a number and print them with different colors. The first ball with the first color and then the following two balls with the second color, and then the following three balls with the third color and so on. 
+
+for the ith color we have i balls in the box so that we have i/(1+S)S probability to get a i-th color balls with 1 draw. On the other hand, the nuumber of the balls is uniform distributed. So that we can say that:
+
+Uniformly randomly choose a constant C from $\{1,2,...,(1+S)S\}$ and then finding the smallest interger n such that 
+$$
+\begin{split}
+C&\le\frac{(1+n)n}{2}\\
+n&\ge\sqrt{2C+0.25}-0.5
+\end{split}
+$$
+then we take the nth chromosomes out and this chromosome has the probability of $\frac{2r_i}{(1+S)S}$ to be chosen.
+
+```{r,echo=FALSE}
+crossover = function(chrom){
+  n = nrow(chrom)
+  p = ncol(chrom)
+  #the input should be ordered
+  
+  #select the parents
+  i1=ceiling(sqrt(2*ceiling(runif(1,0,n*(n+1)/2))+0.25)-0.5)
+  i2=ceiling(sqrt(2*ceiling(runif(1,0,n*(n+1)/2))+0.25)-0.5)
+  
+  a=chrom[i1,]
+  b=chrom[i2,]
+  
+  k = ceiling(runif(1,1,p))# 1<k<=p
+  
+  c(a[1:k-1],b[k:p])
+}
+
+mutation = function(chrom,Pc){
+  n = nrow(chrom)
+  i1=ceiling(sqrt(2*ceiling(runif(1,0,n*(n+1)/2))+0.25)-0.5)
+  a=chrom[i1,]
+  for (i in 2:ncol(chrom)){
+    k = rbinom(1,1,Pc)
+    if (k == 1){
+      a[i]=1-a[i]
+    }
+  }
+  a
+}
+
+
+```
+
+
+2.5 Repeat step 4 until S child chromosomes are  produced. That is, until a whole new generation is obtained.
+
+```{r,echo=FALSE}
+offspring = function(chrom,p,pc){
+  offs = chrom[nrow(chrom),] # keep the best chrom in the previous gen.
+  for (i in 2:nrow(chrom)){
+    j = rbinom(1,1,p)
+    if (j==1){
+      offs = rbind(offs,crossover(chrom))
+    } else{
+      offs = rbind(offs,mutation(chrom,pc))
+    }
+  }
+  offs
+}
+```
+
+2.6 Repeat Steps 2 to 5 using the new generation as the initial population. Then repeat the whole process until the MDL/AIC value of the best chromosome does not change for $N_{same}$ generations.
+
+```{r,echo=FALSE}
+GA = function (y,method){
+  S=300
+  p=0.9
+  pc=0.05
+  Nsame=20
+  
+  n = length(y)
+  chrom = matrix(rbinom(n*S,1,0.5),S,n)
+  chrom[,1] = 0
+  chrom = Sort(chrom,y,method)
+  
+  best = chrom[S,]
+  t=0
+  
+  while (t<Nsame){
+    previous = best
+    chrom = offspring(chrom,p,pc)
+    chrom = Sort(chrom,y,method)
+    best = chrom[S,]
+    if (all(previous == best)){
+      t = t+1
+    }else {t=0}
+  }
+  best
+}
+```
+
+2.7 The best chromosome of the youngest generation is taken as the minimizer of MDL/AIC. 
+
+```{r,echo=FALSE}
+#to make it a R function to make the out puts
+final = function(y,method){
+  #method: 1 is using MDL and 2 is using AIC
+  #y : the noise data
+  results = GA(y,method)
+  if (method == 1){
+    method = "MDL"
+  } else {
+    method = "AIC"
+  }
+  plot(x,y,main = paste("Genetic Algorithms with",method))
+  lines(x,pred(results,y))
+}
+```
+
+for AIC
+
+```{r,echo=FALSE}
+final(y,2)
+```
+
+for MDL
+
+```{r,echo=FALSE}
+final(y,1)
+```
+
+
+Further thinking about the genetic algorithms.
+
+Can we just take the whole gene as a gene bank? It means that we do not do the crossover but draw the gene with a weighted frequency instead. It is the another angle to consider gene in nature. As the generation changes, the frequency of the better gene will increase. All we need is to simulate the Survival of the fittest.
+
+In other words, change the crossover part of the algorithm. the operation above is to take two parents and exchange the genes in the progress. How about just consider each gene location sperately and draw the values with a weighted frequency? 
+
+For example, in this homework 2, we sort the MDL values in descending order. Assign rank to the chromosome as usual. But this time multiple the chromosome with its rank (weighted), sum all the chromosomes and divided it by $r_1+...+r_S=\frac{(1+S)S}{2}$ and we will get a vector which elements is the weighted frequency as mentioned before. Take this frequency as the p in bernoulli(p) and draw a gene.
+
+```{r,echo = FALSE}
+#for the offspring, we decide how many of them should use crossover and also the number of mutation.
+offspring = function(chrom,p,pc){
+  #the input of chrom should be a sorted chrom
+  
+  n = nrow(chrom)
+  col = ncol(chrom)
+  offs = chrom[n,] #keep the best from the last generation
+  
+  noc =  rbinom(1,n-2,p)
+  #number of crossover and at least 1 mutation at least 1 best from last generation 
+  
+  #crossover part
+  freq = colSums(chrom*c(1:n))*2/(n*(n+1))
+  cross = vector()
+  for (i in 1:col){
+    cross = cbind(cross,rbinom(noc,1,freq[i]))
+  }
+  
+  #mutation part
+  muta = vector()
+  for (i in 1:(n-1-noc)){
+    muta = rbind(muta,mutation(chrom,Pc))
+  }
+  
+  offs=rbind(offs,muta,cross)
+  offs
+}
+
+#using the new method
+final(y,2)
+```
+
+
+
+
