@@ -1,6 +1,5 @@
-# Optimization 
+# UC Davis Statistics STA250 : Optimization 
 
-STA250
 
 Homework 1: 
 
